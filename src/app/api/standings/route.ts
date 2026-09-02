@@ -28,7 +28,13 @@ export async function GET() {
     }
   }
 
-  const standings = standingsFromRows(teams.map((t) => t.id), validRows).map((s) => ({
+  // The public ranking is a QUALIFICATION ranking — playoff results must
+  // never feed back into it (the alliance-selection endpoint already reads
+  // listMatches('qualification') for the same reason). The match list below
+  // still shows every phase; only the row set going into standingsFromRows
+  // is restricted here.
+  const qualificationRows = validRows.filter((r) => r.phase === 'qualification');
+  const standings = standingsFromRows(teams.map((t) => t.id), qualificationRows).map((s) => ({
     ...s, name: names[s.teamId] ?? String(s.teamId),
   }));
 

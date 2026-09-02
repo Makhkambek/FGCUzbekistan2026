@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionApi } from '@/lib/auth/require-session';
 import { listTeams } from '@/lib/db/teams';
-import { insertMatches, deleteMatchesByPhase, listMatches } from '@/lib/db/matches';
+import { insertMatches, listMatches } from '@/lib/db/matches';
 import { generateSchedule } from '@/lib/schedule/generate';
 import { scheduleParamsSchema } from '@/lib/validation';
 
@@ -25,13 +25,14 @@ export async function POST(req: NextRequest) {
   const schedule = generateSchedule(
     teams.map((t) => t.id), parsed.data.matchesPerTeam, parsed.data.seed);
 
-  await deleteMatchesByPhase('qualification');
+  // Clear and insert inside one transaction (see insertMatches) so a failed
+  // insert can't leave the qualification phase with no matches at all.
   await insertMatches(schedule.map((m) => ({
     matchNumber: m.matchNumber, phase: 'qualification' as const,
     // generateSchedule always produces exactly 3 ids per side; insertMatches
     // re-checks this at runtime, so the assertion here is safe.
     red: m.red as [number, number, number], blue: m.blue as [number, number, number],
-  })));
+  })), { clearPhase: 'qualification' });
 
   return NextResponse.json({ ok: true, matches: schedule.length });
 }

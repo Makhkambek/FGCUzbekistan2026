@@ -34,11 +34,18 @@ export async function insertMatches(rows: {
   matchNumber: number; phase: 'qualification' | 'playoff';
   red: [number, number, number]; blue: [number, number, number];
   redAllianceId?: number | null; blueAllianceId?: number | null;
-}[]): Promise<void> {
+}[], options?: { clearPhase?: 'qualification' | 'playoff' }): Promise<void> {
   const pool = getPool();
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    // Clearing the phase inside this same transaction (rather than as a
+    // separate call before insertMatches) makes replacement atomic: if the
+    // insert below fails, the rollback restores the matches that were about
+    // to be replaced instead of leaving the phase empty.
+    if (options?.clearPhase) {
+      await conn.execute('DELETE FROM matches WHERE phase = ?', [options.clearPhase]);
+    }
     for (const r of rows) {
       if (r.red.length !== 3 || r.blue.length !== 3) {
         throw new Error(

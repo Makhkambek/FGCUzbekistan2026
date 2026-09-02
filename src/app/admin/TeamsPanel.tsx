@@ -6,18 +6,31 @@ export default function TeamsPanel({ teams }: { teams: { id: number; name: strin
   const router = useRouter();
   const [name, setName] = useState('');
   const [region, setRegion] = useState('');
+  const [message, setMessage] = useState('');
 
   async function add() {
     if (!name.trim()) return;
-    await fetch('/api/admin/teams', {
+    setMessage('');
+    const res = await fetch('/api/admin/teams', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, region: region || undefined }),
     });
-    setName(''); setRegion(''); router.refresh();
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setName(''); setRegion('');
+    } else {
+      setMessage(data.error ?? 'Ошибка');
+    }
+    router.refresh();
   }
 
   async function remove(id: number) {
-    await fetch(`/api/admin/teams?id=${id}`, { method: 'DELETE' });
+    setMessage('');
+    const res = await fetch(`/api/admin/teams?id=${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setMessage(data.error ?? 'Ошибка');
+    }
     router.refresh();
   }
 
@@ -33,6 +46,7 @@ export default function TeamsPanel({ teams }: { teams: { id: number; name: strin
           Добавить
         </button>
       </div>
+      {message && <p className="text-sm text-red-400">{message}</p>}
       <ul className="divide-y divide-slate-800">
         {teams.map((t) => (
           <li key={t.id} className="flex justify-between py-2">

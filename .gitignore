@@ -43,3 +43,6 @@ next-env.d.ts
 .env.local
 node_modules
 .next
+
+# sdd workspace (review artifacts, not source)
+.superpowers/

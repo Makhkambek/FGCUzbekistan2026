@@ -66,6 +66,22 @@ export async function deleteMatchesByPhase(phase: 'qualification' | 'playoff'): 
   await getPool().execute('DELETE FROM matches WHERE phase = ?', [phase]);
 }
 
+/**
+ * True if a team id appears in any match — as any of the six per-alliance
+ * slots, in either phase. There is no foreign key from matches to teams, so
+ * callers must check this themselves before deleting a team; otherwise the
+ * match rows are orphaned and the scoreboard renders a bare numeric id.
+ */
+export async function teamAppearsInMatches(teamId: number): Promise<boolean> {
+  const [rows] = await getPool().execute<RowDataPacket[]>(
+    `SELECT 1 FROM matches
+     WHERE red1_id = ? OR red2_id = ? OR red3_id = ?
+        OR blue1_id = ? OR blue2_id = ? OR blue3_id = ?
+     LIMIT 1`,
+    [teamId, teamId, teamId, teamId, teamId, teamId]);
+  return rows.length > 0;
+}
+
 export async function saveMatchResult(id: number, r: MatchResultInput): Promise<void> {
   await getPool().execute(
     `UPDATE matches SET played = TRUE,

@@ -16,6 +16,9 @@ export default async function AdminPage() {
       <a href="/admin/matches" className="inline-block text-orange-400 hover:text-orange-300">
         → Результаты матчей
       </a>
+      <a href="/admin/alliances" className="inline-block ml-4 text-orange-400 hover:text-orange-300">
+        → Альянсы и плей-офф
+      </a>
       <TeamsPanel teams={teams.map((t) => ({ id: t.id, name: t.name, region: t.region }))} />
       <SchedulePanel matchCount={matches.length} />
     </main>

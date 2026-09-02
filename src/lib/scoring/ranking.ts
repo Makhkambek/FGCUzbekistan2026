@@ -12,11 +12,13 @@ export interface TeamStanding {
   best: number;
   suppressionTotal: number;
   droppedMatchId: number | null;
+  sum: number;
+  keptCount: number;
 }
 
 export function computeTeamStanding(teamId: number, results: TeamMatchResult[]): TeamStanding {
   if (results.length === 0) {
-    return { teamId, rankingScore: 0, played: 0, best: 0, suppressionTotal: 0, droppedMatchId: null };
+    return { teamId, rankingScore: 0, played: 0, best: 0, suppressionTotal: 0, droppedMatchId: null, sum: 0, keptCount: 0 };
   }
 
   // Выкидываем один худший матч, но матч с красной карточкой выкинуть нельзя (M21).
@@ -31,21 +33,42 @@ export function computeTeamStanding(teamId: number, results: TeamMatchResult[]):
 
   const kept = results.filter((r) => r.matchId !== droppedMatchId);
   const sum = kept.reduce((acc, r) => acc + r.score, 0);
+  const keptCount = kept.length;
 
   return {
     teamId,
-    rankingScore: kept.length > 0 ? sum / kept.length : 0,
+    rankingScore: keptCount > 0 ? sum / keptCount : 0,
     played: results.length,
-    best: Math.max(...kept.map((r) => r.score)),
+    best: Math.max(...results.map((r) => r.score)),
     suppressionTotal: kept.reduce((acc, r) => acc + r.suppression, 0),
     droppedMatchId,
+    sum,
+    keptCount,
   };
 }
 
 export function sortStandings(standings: TeamStanding[]): TeamStanding[] {
-  return [...standings].sort((a, b) =>
-    b.rankingScore - a.rankingScore
-    || b.best - a.best
-    || b.suppressionTotal - a.suppressionTotal
-    || a.teamId - b.teamId);
+  return [...standings].sort((a, b) => {
+    // Compare ranking scores using integer cross-multiplication
+    // Avoid floating-point dust: b.sum/b.keptCount vs a.sum/a.keptCount
+    // becomes b.sum * a.keptCount vs a.sum * b.keptCount
+    if (a.keptCount > 0 && b.keptCount > 0) {
+      const cmp = b.sum * a.keptCount - a.sum * b.keptCount;
+      if (cmp !== 0) return cmp;
+    } else if (b.keptCount > 0) {
+      return -1; // b has matches, a doesn't
+    } else if (a.keptCount > 0) {
+      return 1; // a has matches, b doesn't
+    }
+    // Both have keptCount === 0, fall through to tiebreakers
+
+    // Tiebreaker 1: best match score
+    if (b.best !== a.best) return b.best - a.best;
+
+    // Tiebreaker 2: suppression total
+    if (b.suppressionTotal !== a.suppressionTotal) return b.suppressionTotal - a.suppressionTotal;
+
+    // Tiebreaker 3: team ID (ascending)
+    return a.teamId - b.teamId;
+  });
 }

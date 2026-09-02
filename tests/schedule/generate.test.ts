@@ -44,4 +44,22 @@ describe('generateSchedule', () => {
   it('разные seed дают разные расписания', () => {
     expect(generateSchedule(teams, 5, 42)).not.toEqual(generateSchedule(teams, 5, 7));
   });
+
+  it('неравномерный расход (13 команд) использует допуск ±1', () => {
+    // 13 команд * 5 матчей/команду / 6 команд/матч = 10.83..., округлено до 10 матчей
+    // 10 матчей * 6 команд/матч = 60 появлений
+    // 60 появлений / 13 команд = 4.6... появлений/команду
+    // Команды должны иметь 4 или 5 появлений (в пределах ±1 от 5)
+    const teams13 = Array.from({ length: 13 }, (_, i) => i + 1);
+    const schedule = generateSchedule(teams13, 5, 42);
+    const counts = new Map<number, number>();
+    for (const m of schedule) {
+      for (const t of [...m.red, ...m.blue]) counts.set(t, (counts.get(t) ?? 0) + 1);
+      // Убедиться, что команда не встречается дважды в одном матче
+      expect(new Set([...m.red, ...m.blue]).size).toBe(6);
+    }
+    for (const t of teams13) {
+      expect(Math.abs((counts.get(t) ?? 0) - 5)).toBeLessThanOrEqual(1);
+    }
+  });
 });

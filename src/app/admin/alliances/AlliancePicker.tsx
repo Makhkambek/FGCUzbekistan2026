@@ -62,7 +62,20 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
     }
   }
 
-  async function reset() {
+  // There is no per-pick undo, so this is the one chance to catch a misclick:
+  // during a live ceremony this button sits right below the picker buttons,
+  // and it discards every pick made so far with no way back.
+  function reset() {
+    const madePicks = state?.reduce((acc, a) => acc + a.picks.length, 0) ?? 0;
+    const ok = window.confirm(
+      madePicks > 0
+        ? `Сбросить весь выбор альянсов? Будут потеряны все сделанные выборы (${madePicks}) — отменить это будет нельзя.`
+        : 'Сбросить выбор альянсов?',
+    );
+    if (ok) performReset();
+  }
+
+  async function performReset() {
     setError('');
     setBusy(true);
     try {

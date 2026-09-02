@@ -55,10 +55,10 @@ export function sortStandings(standings: TeamStanding[]): TeamStanding[] {
     if (a.keptCount > 0 && b.keptCount > 0) {
       const cmp = b.sum * a.keptCount - a.sum * b.keptCount;
       if (cmp !== 0) return cmp;
-    } else if (b.keptCount > 0) {
-      return -1; // b has matches, a doesn't
-    } else if (a.keptCount > 0) {
-      return 1; // a has matches, b doesn't
+    } else if (a.keptCount === 0 && b.keptCount > 0) {
+      return 1; // a has no matches, b has matches → b ranks higher
+    } else if (a.keptCount > 0 && b.keptCount === 0) {
+      return -1; // a has matches, b has no matches → a ranks higher
     }
     // Both have keptCount === 0, fall through to tiebreakers
 

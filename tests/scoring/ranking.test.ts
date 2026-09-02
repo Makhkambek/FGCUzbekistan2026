@@ -94,4 +94,51 @@ describe('sortStandings', () => {
     ]);
     expect(r.map((x) => x.teamId)).toEqual([1, 2]);
   });
+
+  it('сыгравшая команда выше команды без матчей', () => {
+    // Team 1: сыграла 2 матча со средним 135
+    // Team 2: не сыграла вообще
+    const played = { teamId: 1, rankingScore: 135, best: 150, suppressionTotal: 40, played: 2, droppedMatchId: null, sum: 270, keptCount: 2 };
+    const unplayed = { teamId: 2, rankingScore: 0, best: 0, suppressionTotal: 0, played: 0, droppedMatchId: null, sum: 0, keptCount: 0 };
+
+    const r = sortStandings([played, unplayed]);
+    expect(r.map((x) => x.teamId)).toEqual([1, 2]);
+  });
+
+  it('сыгравшая команда выше в любом порядке', () => {
+    // Team 1: сыграла 2 матча со средним 135
+    // Team 2: не сыграла вообще
+    // Проверяем и обратный порядок, чтобы убедиться что компаратор не зависит от исходного порядка
+    const played = { teamId: 1, rankingScore: 135, best: 150, suppressionTotal: 40, played: 2, droppedMatchId: null, sum: 270, keptCount: 2 };
+    const unplayed = { teamId: 2, rankingScore: 0, best: 0, suppressionTotal: 0, played: 0, droppedMatchId: null, sum: 0, keptCount: 0 };
+
+    const r = sortStandings([unplayed, played]);
+    expect(r.map((x) => x.teamId)).toEqual([1, 2]);
+  });
+
+  it('команда с нулевым рейтингом но с матчами выше команды без матчей', () => {
+    // Team 1: сыграла 2 матча но набрала 0 (например белые карточки)
+    // Team 2: не сыграла вообще
+    const withMatches = { teamId: 1, rankingScore: 0, best: 0, suppressionTotal: 0, played: 2, droppedMatchId: null, sum: 0, keptCount: 2 };
+    const noMatches = { teamId: 2, rankingScore: 0, best: 0, suppressionTotal: 0, played: 0, droppedMatchId: null, sum: 0, keptCount: 0 };
+
+    const r = sortStandings([withMatches, noMatches]);
+    expect(r.map((x) => x.teamId)).toEqual([1, 2]);
+  });
+
+  it('реалистичный список: несколько сыгравших команд и одна без матчей внизу', () => {
+    // Team 1: средний 85, лучший матч 100
+    // Team 2: средний 95, лучший матч 110
+    // Team 3: средний 70, лучший матч 80
+    // Team 4: не сыграла вообще
+    // Ожидаемый порядок: 2 (95), 1 (85), 3 (70), 4 (нет матчей - последняя)
+    const standings = [
+      { teamId: 1, rankingScore: 85, best: 100, suppressionTotal: 25, played: 3, droppedMatchId: null, sum: 255, keptCount: 3 },
+      { teamId: 4, rankingScore: 0, best: 0, suppressionTotal: 0, played: 0, droppedMatchId: null, sum: 0, keptCount: 0 },
+      { teamId: 2, rankingScore: 95, best: 110, suppressionTotal: 35, played: 3, droppedMatchId: null, sum: 285, keptCount: 3 },
+      { teamId: 3, rankingScore: 70, best: 80, suppressionTotal: 20, played: 3, droppedMatchId: null, sum: 210, keptCount: 3 },
+    ];
+    const r = sortStandings(standings);
+    expect(r.map((x) => x.teamId)).toEqual([2, 1, 3, 4]);
+  });
 });

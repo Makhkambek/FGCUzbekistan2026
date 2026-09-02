@@ -1,4 +1,4 @@
-import type { RowDataPacket } from 'mysql2';
+import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { getPool } from './pool';
 import type { MatchResultInput } from '../validation';
 
@@ -89,8 +89,17 @@ export async function teamAppearsInMatches(teamId: number): Promise<boolean> {
   return rows.length > 0;
 }
 
-export async function saveMatchResult(id: number, r: MatchResultInput): Promise<void> {
-  await getPool().execute(
+/**
+ * Returns true if a match row with this id was actually updated. The
+ * schedule can be regenerated while a judge has this match's entry page
+ * open — a stale id must be reported to the caller rather than silently
+ * reporting success. `affectedRows` reflects rows *matched* by the WHERE
+ * clause on this pool's connections (verified: a same-value re-save of an
+ * existing row still reports 1, and only a missing id reports 0), so this
+ * check does not misfire on an unchanged re-save.
+ */
+export async function saveMatchResult(id: number, r: MatchResultInput): Promise<boolean> {
+  const [result] = await getPool().execute<ResultSetHeader>(
     `UPDATE matches SET played = TRUE,
        suppression_red = ?, suppression_blue = ?, extinguisher = ?,
        climb_red1 = ?, climb_red2 = ?, climb_red3 = ?,
@@ -106,4 +115,5 @@ export async function saveMatchResult(id: number, r: MatchResultInput): Promise<
      r.partnerClimbRed, r.partnerClimbBlue,
      r.minorFoulsRed, r.majorFoulsRed, r.minorFoulsBlue, r.majorFoulsBlue,
      ...r.cardRed, ...r.cardBlue, id]);
+  return result.affectedRows > 0;
 }

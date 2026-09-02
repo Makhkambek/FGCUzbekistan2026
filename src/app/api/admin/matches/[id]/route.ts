@@ -16,6 +16,9 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
     return NextResponse.json({ error: 'Некорректные данные матча' }, { status: 400 });
   }
 
-  await saveMatchResult(id, parsed.data);
+  const updated = await saveMatchResult(id, parsed.data);
+  if (!updated) {
+    return NextResponse.json({ error: 'Матч не найден — возможно, расписание было пересоздано' }, { status: 404 });
+  }
   return NextResponse.json({ ok: true });
 }

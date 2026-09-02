@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { computeMatchScores } from '@/lib/scoring/match';
 import type { ClimbPosition, CardType } from '@/lib/scoring/types';
+import type { MatchRow } from '@/lib/db/matches';
 
 const CLIMBS: { value: ClimbPosition; label: string }[] = [
   { value: 'none', label: 'нет' }, { value: 'contact', label: 'контакт' },
@@ -20,16 +21,19 @@ const MAX_FOULS = 20;
 type Trio<T> = [T, T, T];
 
 export default function MatchForm({ match, teamNames }: {
-  match: any; teamNames: Record<number, string>;
+  match: MatchRow; teamNames: Record<number, string>;
 }) {
   const router = useRouter();
   const [suppressionRed, setSuppressionRed] = useState(match.suppression_red);
   const [suppressionBlue, setSuppressionBlue] = useState(match.suppression_blue);
   const [extinguisher, setExtinguisher] = useState(match.extinguisher);
+  // climb_*/card_* come back from mysql2 typed as plain `string` (the schema
+  // enforces the ENUM at the DB level, TypeScript can't see that) — same
+  // narrowing cast already used for these columns in src/lib/standings.ts.
   const [climbRed, setClimbRed] = useState<Trio<ClimbPosition>>(
-    [match.climb_red1, match.climb_red2, match.climb_red3]);
+    [match.climb_red1, match.climb_red2, match.climb_red3] as Trio<ClimbPosition>);
   const [climbBlue, setClimbBlue] = useState<Trio<ClimbPosition>>(
-    [match.climb_blue1, match.climb_blue2, match.climb_blue3]);
+    [match.climb_blue1, match.climb_blue2, match.climb_blue3] as Trio<ClimbPosition>);
   const [partnerRed, setPartnerRed] = useState(match.partner_climb_red);
   const [partnerBlue, setPartnerBlue] = useState(match.partner_climb_blue);
   const [minorRed, setMinorRed] = useState(match.minor_fouls_red);
@@ -37,12 +41,20 @@ export default function MatchForm({ match, teamNames }: {
   const [minorBlue, setMinorBlue] = useState(match.minor_fouls_blue);
   const [majorBlue, setMajorBlue] = useState(match.major_fouls_blue);
   const [cardRed, setCardRed] = useState<Trio<CardType>>(
-    [match.card_red1, match.card_red2, match.card_red3]);
+    [match.card_red1, match.card_red2, match.card_red3] as Trio<CardType>);
   const [cardBlue, setCardBlue] = useState<Trio<CardType>>(
-    [match.card_blue1, match.card_blue2, match.card_blue3]);
+    [match.card_blue1, match.card_blue2, match.card_blue3] as Trio<CardType>);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [saveError, setSaveError] = useState('');
+
+  // Any edit after a save invalidates that save's confirmation — a stale
+  // "✓ Сохранено" next to a value the judge just changed would tell them
+  // an unsent correction is already safe, which is worse than no indicator.
+  function markDirty() {
+    setSaveStatus('idle');
+    setSaveError('');
+  }
 
   const preview = computeMatchScores({
     extinguisher,
@@ -88,6 +100,7 @@ export default function MatchForm({ match, teamNames }: {
       onChange={(e) => {
         const n = Math.trunc(Number(e.target.value));
         set(Number.isFinite(n) ? Math.min(max, Math.max(0, n)) : 0);
+        markDirty();
       }}
       className="w-24 px-2 py-1 rounded bg-slate-800 border border-slate-700" />
   );
@@ -105,6 +118,7 @@ export default function MatchForm({ match, teamNames }: {
             onChange={(e) => {
               const next = [...climbs] as Trio<ClimbPosition>;
               next[i] = e.target.value as ClimbPosition; setClimbs(next);
+              markDirty();
             }}
             className="px-2 py-1 rounded bg-slate-800 border border-slate-700">
             {CLIMBS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
@@ -113,6 +127,7 @@ export default function MatchForm({ match, teamNames }: {
             onChange={(e) => {
               const next = [...cards] as Trio<CardType>;
               next[i] = e.target.value as CardType; setCards(next);
+              markDirty();
             }}
             className="px-2 py-1 rounded bg-slate-800 border border-slate-700">
             {CARDS.map((c) => <option key={c} value={c}>{c}</option>)}

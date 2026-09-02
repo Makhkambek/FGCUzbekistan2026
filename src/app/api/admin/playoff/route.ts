@@ -1,11 +1,28 @@
 import { NextResponse } from 'next/server';
 import { requireSessionApi } from '@/lib/auth/require-session';
 import { getAlliances } from '@/lib/db/alliances';
-import { insertMatches } from '@/lib/db/matches';
+import { insertMatches, listMatches } from '@/lib/db/matches';
 import { PLAYOFF_PAIRINGS } from '@/lib/alliances/playoff';
+
+export async function GET() {
+  if (!await requireSessionApi()) return NextResponse.json({ error: 'Нет доступа' }, { status: 401 });
+
+  const matches = await listMatches('playoff');
+  return NextResponse.json({ matches: matches.length, played: matches.filter((m) => m.played).length });
+}
 
 export async function POST() {
   if (!await requireSessionApi()) return NextResponse.json({ error: 'Нет доступа' }, { status: 401 });
+
+  // Same guard shape as /api/admin/schedule: once a match has a real result,
+  // regenerating the phase would silently erase it with no way back. This
+  // check must live here, not just in the UI — a confirmation dialog gets
+  // clicked through under pressure during a live ceremony.
+  const existingPlayoff = await listMatches('playoff');
+  if (existingPlayoff.some((m) => m.played)) {
+    return NextResponse.json(
+      { error: 'Есть сыгранные матчи плей-офф — пересоздать сетку нельзя' }, { status: 409 });
+  }
 
   const alliances = await getAlliances();
   if (alliances.length !== 3 || alliances.some((a) => !a.pick1_team_id || !a.pick2_team_id)) {

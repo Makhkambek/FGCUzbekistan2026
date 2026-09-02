@@ -4,26 +4,37 @@ import { useRouter } from 'next/navigation';
 import { nextPicker, isPickable } from '@/lib/alliances/selection';
 import type { SelectionState } from '@/lib/alliances/selection';
 
+interface PlayoffStatus { matches: number; played: number }
+
 export default function AlliancePicker({ teamNames }: { teamNames: Record<number, string> }) {
   const router = useRouter();
   const [state, setState] = useState<SelectionState | null>(null);
   const [ranked, setRanked] = useState<number[]>([]);
+  const [playoff, setPlayoff] = useState<PlayoffStatus | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   function load() {
-    return fetch('/api/admin/alliances')
-      .then((res) => res.json().catch(() => ({})).then((data) => {
-        if (res.ok) {
-          setState(data.state);
-          setRanked(data.ranked);
+    return Promise.all([
+      fetch('/api/admin/alliances').then((res) => res.json().catch(() => ({})).then((data) => ({ res, data }))),
+      // Playoff status decides whether the button below is "create" or
+      // "re-create" — fetched alongside alliances so it's always current.
+      fetch('/api/admin/playoff').then((res) => res.json().catch(() => ({})).then((data) => ({ res, data }))),
+    ])
+      .then(([alliances, playoffStatus]) => {
+        if (alliances.res.ok) {
+          setState(alliances.data.state);
+          setRanked(alliances.data.ranked);
           setError('');
         } else {
           setState(null);
-          setError(data.error ?? `Не удалось загрузить данные (код ${res.status})`);
+          setError(alliances.data.error ?? `Не удалось загрузить данные (код ${alliances.res.status})`);
         }
-      }))
+        setPlayoff(playoffStatus.res.ok
+          ? { matches: playoffStatus.data.matches, played: playoffStatus.data.played }
+          : null);
+      })
       .catch(() => {
         setState(null);
         setError('Не удалось загрузить данные — проверьте соединение и попробуйте ещё раз');
@@ -82,6 +93,18 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
     } finally {
       setBusy(false);
     }
+  }
+
+  // Re-creation is the destructive path: only offered while the server would
+  // still allow it (no playoff match played yet), and only after the operator
+  // confirms exactly what gets deleted. The server re-checks this regardless
+  // — this dialog is a courtesy, not the safeguard.
+  function regeneratePlayoff() {
+    const count = playoff?.matches ?? 0;
+    const ok = window.confirm(
+      `Это удалит все текущие матчи плей-офф (${count}) и создаст сетку заново. Продолжить?`,
+    );
+    if (ok) generatePlayoff();
   }
 
   if (loading) return <p className="text-slate-400">Загрузка…</p>;
@@ -149,6 +172,22 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
             ))}
           </div>
         </section>
+      ) : playoff && playoff.matches > 0 ? (
+        <div className="bg-slate-900 rounded-lg p-4 space-y-2">
+          <p className="text-sm text-slate-300">
+            Матчи плей-оффа созданы: {playoff.matches}, сыграно: {playoff.played}
+          </p>
+          {playoff.played === 0 ? (
+            <button onClick={regeneratePlayoff} disabled={busy}
+              className="px-3 py-1.5 rounded border border-slate-700 text-slate-400 text-xs hover:text-slate-200 hover:border-slate-500 disabled:opacity-50">
+              {busy ? 'Пересоздание…' : 'Пересоздать сетку плей-оффа заново'}
+            </button>
+          ) : (
+            <p className="text-xs text-slate-500">
+              Пересоздание недоступно — есть сыгранные матчи плей-оффа
+            </p>
+          )}
+        </div>
       ) : (
         <button onClick={generatePlayoff} disabled={busy}
           className="px-4 py-2 rounded bg-orange-600 hover:bg-orange-500 disabled:opacity-50">

@@ -30,6 +30,23 @@ export function nextPicker(state: SelectionState): number | null {
   return made < PICK_ORDER.length ? PICK_ORDER[made] : null;
 }
 
+/**
+ * True if `teamId` may legally be picked next by the alliance at
+ * `pickerIndex` (0-based, same indexing as `nextPicker`'s return value).
+ *
+ * This mirrors — rather than reimplements — the exact acceptance rule
+ * enforced inside `applyPick`: a team is pickable if it is not already taken
+ * (captain or pick of any alliance), UNLESS it is the captain of a
+ * LOWER-ranked alliance, which is always pickable (that captain moves up and
+ * their vacated captaincy passes to the next free team by ranking).
+ */
+export function isPickable(state: SelectionState, pickerIndex: number, teamId: number): boolean {
+  const taken = assignedTeams(state);
+  const captainOfSeedIndex = state.findIndex((a) => a.captain === teamId);
+  const isLowerCaptain = captainOfSeedIndex > pickerIndex;
+  return !taken.has(teamId) || isLowerCaptain;
+}
+
 export function applyPick(
   state: SelectionState, rankedTeamIds: number[], pickedTeamId: number,
 ): SelectionState {

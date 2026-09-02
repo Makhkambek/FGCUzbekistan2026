@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { initialSelection, nextPicker, applyPick, PICK_ORDER } from '@/lib/alliances/selection';
+import { initialSelection, nextPicker, applyPick, isPickable, PICK_ORDER } from '@/lib/alliances/selection';
 
 // Команды по рейтингу: 1 — первая, 12 — последняя.
 const ranked = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -91,5 +91,57 @@ describe('applyPick', () => {
         allTeams.add(p);
       }
     }
+  });
+});
+
+// isPickable must agree exactly with the accept/reject rule enforced inside
+// applyPick (see the `taken.has(pickedTeamId) && !isLowerCaptain` check) —
+// it exists so the UI can decide what to render as clickable without
+// re-implementing that rule.
+describe('isPickable', () => {
+  it('свободная команда — можно выбрать любым альянсом', () => {
+    const s = initialSelection(ranked);
+    expect(isPickable(s, 0, 5)).toBe(true);
+    expect(isPickable(s, 1, 5)).toBe(true);
+  });
+
+  it('капитана своего же альянса выбрать нельзя', () => {
+    const s = initialSelection(ranked);
+    expect(isPickable(s, 0, 1)).toBe(false);
+  });
+
+  it('капитана вышестоящего альянса выбрать нельзя', () => {
+    const s = initialSelection(ranked);
+    // Альянс 2 (индекс 1) не может выбрать капитана альянса 1 (команда 1).
+    expect(isPickable(s, 1, 1)).toBe(false);
+  });
+
+  it('капитана нижестоящего альянса выбрать МОЖНО', () => {
+    const s = initialSelection(ranked);
+    // Альянс 1 (индекс 0) может выбрать капитана альянса 3 (команда 3).
+    expect(isPickable(s, 0, 3)).toBe(true);
+  });
+
+  it('уже выбранный пик выбрать нельзя', () => {
+    const s = applyPick(initialSelection(ranked), ranked, 5);
+    expect(isPickable(s, 1, 5)).toBe(false);
+    expect(isPickable(s, 2, 5)).toBe(false);
+  });
+
+  it('согласуется с applyPick: то, что isPickable разрешает, applyPick принимает, а что запрещает — отклоняет', () => {
+    const s = initialSelection(ranked);
+    const pickerIndex = nextPicker(s)!;
+    for (const teamId of ranked) {
+      const expected = isPickable(s, pickerIndex, teamId);
+      if (expected) expect(() => applyPick(s, ranked, teamId)).not.toThrow();
+      else expect(() => applyPick(s, ranked, teamId)).toThrow();
+    }
+  });
+
+  it('после «поднятия» нижестоящего капитана — он и обычные пики недоступны, свободные команды доступны', () => {
+    const s = applyPick(initialSelection(ranked), ranked, 3); // альянс 1 поднимает капитана 3
+    const pickerIndex = nextPicker(s)!; // альянс 2
+    expect(isPickable(s, pickerIndex, 3)).toBe(false); // теперь пик альянса 1
+    expect(isPickable(s, pickerIndex, 4)).toBe(true); // новый капитан альянса 3 — нижестоящий для альянса 2
   });
 });

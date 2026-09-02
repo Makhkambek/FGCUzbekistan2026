@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { nextPicker } from '@/lib/alliances/selection';
+import { nextPicker, isPickable } from '@/lib/alliances/selection';
 import type { SelectionState } from '@/lib/alliances/selection';
 
 export default function AlliancePicker({ teamNames }: { teamNames: Record<number, string> }) {
@@ -103,16 +103,36 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-4">
-        {state.map((a) => (
-          <div key={a.seed}
-            className={`p-4 rounded-lg bg-slate-900 ${picker === a.seed - 1 ? 'ring-2 ring-orange-500' : ''}`}>
-            <h3 className="font-semibold mb-2">Альянс {a.seed}</h3>
-            <p className="text-sm">Капитан: {teamNames[a.captain] ?? a.captain}</p>
-            {a.picks.map((p, i) => (
-              <p key={p} className="text-sm text-slate-400">Пик {i + 1}: {teamNames[p] ?? p}</p>
-            ))}
-          </div>
-        ))}
+        {state.map((a) => {
+          // Captain of a LOWER-ranked alliance is the one legal exception to
+          // "already-taken teams can't be picked" (see isPickable / applyPick):
+          // the current picker may poach them, which promotes the next free
+          // team by ranking into the vacated captaincy.
+          const captainPoachable = picker !== null && isPickable(state, picker, a.captain);
+          return (
+            <div key={a.seed}
+              className={`p-4 rounded-lg bg-slate-900 ${picker === a.seed - 1 ? 'ring-2 ring-orange-500' : ''}`}>
+              <h3 className="font-semibold mb-2">Альянс {a.seed}</h3>
+              {captainPoachable ? (
+                <button onClick={() => pick(a.captain)} disabled={busy}
+                  className="w-full text-left text-sm p-2 -mx-1 rounded border border-amber-500 bg-amber-950/40 hover:bg-amber-900/50 disabled:opacity-50">
+                  <span className="block text-amber-400 font-medium">
+                    ⇪ Переманить капитана: {teamNames[a.captain] ?? a.captain}
+                  </span>
+                  <span className="block text-xs text-amber-200/80 mt-0.5">
+                    Перейдёт в выбирающий альянс; капитаном альянса {a.seed} станет
+                    следующая свободная команда по рейтингу
+                  </span>
+                </button>
+              ) : (
+                <p className="text-sm">Капитан: {teamNames[a.captain] ?? a.captain}</p>
+              )}
+              {a.picks.map((p, i) => (
+                <p key={p} className="text-sm text-slate-400">Пик {i + 1}: {teamNames[p] ?? p}</p>
+              ))}
+            </div>
+          );
+        })}
       </div>
 
       {error && <p className="text-red-400 text-sm" role="alert">{error}</p>}

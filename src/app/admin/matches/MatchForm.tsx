@@ -65,6 +65,16 @@ export default function MatchForm({ match, teamNames }: {
   });
 
   async function save() {
+    // Saving an unplayed match is the irreversible transition — it records a
+    // real result for six teams and, from then on, blocks schedule/playoff
+    // regeneration. A misclick on an already-played match is just a
+    // correction, so re-saves stay frictionless and skip this prompt.
+    if (!match.played && !window.confirm(
+      `Матч ${match.match_number} ещё не был сыгран. Сохранить результат и отметить матч как сыгранный?`,
+    )) {
+      return;
+    }
+
     setSaving(true);
     setSaveStatus('idle');
     setSaveError('');
@@ -139,7 +149,18 @@ export default function MatchForm({ match, teamNames }: {
 
   return (
     <div className="bg-slate-900 rounded-lg p-6 space-y-4">
-      <h3 className="font-semibold">Матч {match.match_number}</h3>
+      <div className="flex items-center gap-3">
+        <h3 className="font-semibold">Матч {match.match_number}</h3>
+        {match.played ? (
+          <span className="text-xs px-2 py-0.5 rounded bg-green-900/60 text-green-300 border border-green-700">
+            Сыграно
+          </span>
+        ) : (
+          <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+            Не сыграно
+          </span>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         {side('red', [match.red1_id, match.red2_id, match.red3_id], climbRed, setClimbRed, cardRed, setCardRed)}

@@ -32,7 +32,7 @@ export async function listMatches(phase?: 'qualification' | 'playoff'): Promise<
 
 export async function insertMatches(rows: {
   matchNumber: number; phase: 'qualification' | 'playoff';
-  red: number[]; blue: number[];
+  red: [number, number, number]; blue: [number, number, number];
   redAllianceId?: number | null; blueAllianceId?: number | null;
 }[]): Promise<void> {
   const pool = getPool();
@@ -40,6 +40,11 @@ export async function insertMatches(rows: {
   try {
     await conn.beginTransaction();
     for (const r of rows) {
+      if (r.red.length !== 3 || r.blue.length !== 3) {
+        throw new Error(
+          `Матч №${r.matchNumber}: у каждого альянса должно быть ровно три команды`,
+        );
+      }
       await conn.execute(
         `INSERT INTO matches
            (match_number, phase, red_alliance_id, blue_alliance_id,

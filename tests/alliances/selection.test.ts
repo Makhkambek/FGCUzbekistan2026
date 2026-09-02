@@ -59,4 +59,37 @@ describe('applyPick', () => {
     s = applyPick(s, ranked, 8); // снова альянс 3
     expect(s[2].picks).toEqual([7, 8]);
   });
+
+  it('нельзя выбрать команду не из рейтинга', () => {
+    expect(() => applyPick(initialSelection(ranked), ranked, 99)).toThrow(/не найдена в рейтинге/i);
+  });
+
+  it('при вакантности капитана — выбирается следующая свободная по рейтингу, не по индексу', () => {
+    // Альянс 1 выбирает команду 6 (пропускаем 4 и 5).
+    let s = applyPick(initialSelection(ranked), ranked, 6);
+    // Альянс 2 выбирает капитана 3. Тот переходит в альянс 2, его капитанство вакантно.
+    s = applyPick(s, ranked, 3);
+    // Новый капитан альянса 3 должен быть 4 (первый свободный по рейтингу), а не 5.
+    expect(s[2].captain).toBe(4);
+    expect(s.map((a) => a.captain)).toEqual([1, 2, 4]);
+  });
+
+  it('двойное повышение: капитан подбирает капитана, что переполняется и подбирается', () => {
+    // Альянс 1 выбирает капитана 3. Он переходит в альянс 1, капитанство 3 идёт капитану 4.
+    let s = applyPick(initialSelection(ranked), ranked, 3);
+    expect(s[2].captain).toBe(4);
+    // Альянс 2 выбирает капитана 4. Тот переходит в альянс 2, его капитанство идёт капитану 5.
+    s = applyPick(s, ranked, 4);
+    expect(s[2].captain).toBe(5);
+    expect(s.map((a) => a.captain)).toEqual([1, 2, 5]);
+    // Проверяем, что никакая команда не в двух альянсах.
+    const allTeams = new Set<number>();
+    for (const a of s) {
+      allTeams.add(a.captain);
+      for (const p of a.picks) {
+        expect(allTeams.has(p)).toBe(false);
+        allTeams.add(p);
+      }
+    }
+  });
 });

@@ -36,6 +36,10 @@ export function applyPick(
   const pickerIndex = nextPicker(state);
   if (pickerIndex === null) throw new Error('Выбор альянсов уже завершён');
 
+  if (!rankedTeamIds.includes(pickedTeamId)) {
+    throw new Error('Команда не найдена в рейтинге');
+  }
+
   const taken = assignedTeams(state);
   const pickedIsCaptainOf = state.findIndex((a) => a.captain === pickedTeamId);
 

@@ -8,9 +8,24 @@ export interface AllianceSlot {
 
 export type SelectionState = AllianceSlot[];
 
+export const MIN_TEAMS = 9;
+
+/**
+ * Thrown when there are not enough teams to seat three alliances. A distinct
+ * class, because the API has to tell this apart from a database failure: it
+ * used to sniff the message text, so a lock timeout during the draft was
+ * reported to the referee as "not enough teams".
+ */
+export class NotEnoughTeamsError extends Error {
+  constructor(readonly available: number) {
+    super(`Three alliances of three teams need at least ${MIN_TEAMS} teams`);
+    this.name = 'NotEnoughTeamsError';
+  }
+}
+
 export function initialSelection(rankedTeamIds: number[]): SelectionState {
-  if (rankedTeamIds.length < 9) {
-    throw new Error('Three alliances of three teams need at least 9 teams');
+  if (rankedTeamIds.length < MIN_TEAMS) {
+    throw new NotEnoughTeamsError(rankedTeamIds.length);
   }
   return rankedTeamIds.slice(0, 3).map((captain, i) => ({ seed: i + 1, captain, picks: [null, null] }));
 }

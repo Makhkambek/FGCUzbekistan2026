@@ -11,11 +11,15 @@ export default function ShowStandingsButton() {
     try {
       const res = await fetch('/api/admin/display/standings', { method: 'POST' });
       setStatus(res.ok ? 'ok' : 'error');
+      // Only the confirmation fades. An error used to disappear on the same
+      // timer, so a referee who glanced at the field for five seconds came
+      // back to a button that looked untouched — with the projector still
+      // showing the previous screen.
+      if (res.ok) setTimeout(() => setStatus('idle'), 2500);
     } catch {
       setStatus('error');
     } finally {
       setBusy(false);
-      setTimeout(() => setStatus('idle'), 2500);
     }
   }
 

@@ -63,3 +63,31 @@ describe('generateSchedule', () => {
     }
   });
 });
+
+describe('generateSchedule — недобор матчей', () => {
+  // Мануал §6.3: «Each team will play a set number of RANKING MATCHES».
+  // Округление вниз давало командам МЕНЬШЕ матчей, чем запросил оператор,
+  // а на 9 командах и одном матче — троим не доставалось ни одного.
+  const countPerTeam = (teamIds: number[], perTeam: number, seed: number) => {
+    const schedule = generateSchedule(teamIds, perTeam, seed);
+    const counts = new Map(teamIds.map((id) => [id, 0]));
+    for (const m of schedule) {
+      for (const id of [...m.red, ...m.blue]) counts.set(id, counts.get(id)! + 1);
+    }
+    return [...counts.values()];
+  };
+
+  it('никто не играет меньше запрошенного, когда произведение не делится на 6', () => {
+    for (const [teams, perTeam] of [[9, 1], [9, 5], [7, 1], [13, 5], [8, 5], [11, 3]] as const) {
+      const ids = Array.from({ length: teams }, (_, i) => i + 1);
+      const counts = countPerTeam(ids, perTeam, 42);
+      expect(Math.min(...counts), `${teams} команд × ${perTeam}`).toBeGreaterThanOrEqual(perTeam);
+    }
+  });
+
+  it('разброс между командами не больше одного матча', () => {
+    const ids = Array.from({ length: 9 }, (_, i) => i + 1);
+    const counts = countPerTeam(ids, 5, 7);
+    expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+  });
+});

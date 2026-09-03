@@ -22,7 +22,13 @@ export function generateSchedule(
   if (matchesPerTeam < 1) throw new Error('Matches per team must be at least one');
 
   const rng = mulberry32(seed);
-  const totalMatches = Math.floor((teamIds.length * matchesPerTeam) / 6);
+  // Rounding up, not down: with floor, any team count whose product with
+  // matchesPerTeam is not divisible by 6 left teams short of the number of
+  // matches the operator asked for — at 9 teams and 1 match each, three teams
+  // played nothing at all and silently ranked last. Erring upwards gives some
+  // teams one extra match instead, which the ranking already handles (it
+  // averages and drops the lowest).
+  const totalMatches = Math.ceil((teamIds.length * matchesPerTeam) / 6);
   const appearances = new Map(teamIds.map((id) => [id, 0]));
   const lastPlayed = new Map(teamIds.map((id) => [id, -Infinity]));
   const schedule: ScheduledMatch[] = [];

@@ -13,7 +13,15 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
   const [playoff, setPlayoff] = useState<PlayoffStatus | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  // One shared flag used to drive every button's label, so an ordinary pick
+  // made the Reset button read "Resetting…" in the middle of a live draft
+  // ceremony. The flag still blocks all buttons; only the wording is per-action.
   const [busy, setBusy] = useState(false);
+  const [action, setAction] = useState<'pick' | 'reset' | 'playoff' | null>(null);
+  // Distinguishing "no playoff yet" from "we could not find out": on a failed
+  // request the draft used to look unlocked and offered to create a bracket
+  // that the server would then refuse.
+  const [playoffUnknown, setPlayoffUnknown] = useState(false);
 
   function load() {
     return Promise.all([
@@ -34,6 +42,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
         setPlayoff(playoffStatus.res.ok
           ? { matches: playoffStatus.data.matches, played: playoffStatus.data.played }
           : null);
+        setPlayoffUnknown(!playoffStatus.res.ok);
       })
       .catch(() => {
         setState(null);
@@ -55,6 +64,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
       if (!ok) return;
     }
     setError('');
+    setAction('pick');
     setBusy(true);
     try {
       const res = await fetch('/api/admin/alliances', {
@@ -67,13 +77,14 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
     } catch {
       setError('Could not register the pick — check the connection and try again');
     } finally {
-      setBusy(false);
+      setBusy(false); setAction(null);
     }
   }
 
   async function clearSlot(allianceSeed: number, slotIndex: 0 | 1) {
     if (!window.confirm('Clear this pick?')) return;
     setError('');
+    setAction('pick');
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/alliances?seed=${allianceSeed}&slot=${slotIndex}`, { method: 'DELETE' });
@@ -83,7 +94,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
     } catch {
       setError('Could not clear the pick — check the connection and try again');
     } finally {
-      setBusy(false);
+      setBusy(false); setAction(null);
     }
   }
 
@@ -103,6 +114,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
 
   async function performReset() {
     setError('');
+    setAction('reset');
     setBusy(true);
     try {
       const res = await fetch('/api/admin/alliances', { method: 'DELETE' });
@@ -115,12 +127,13 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
     } catch {
       setError('Could not reset the selection — check the connection and try again');
     } finally {
-      setBusy(false);
+      setBusy(false); setAction(null);
     }
   }
 
   async function generatePlayoff() {
     setError('');
+    setAction('playoff');
     setBusy(true);
     try {
       const res = await fetch('/api/admin/playoff', { method: 'POST' });
@@ -130,7 +143,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
     } catch {
       setError('Could not create playoff matches — check the connection and try again');
     } finally {
-      setBusy(false);
+      setBusy(false); setAction(null);
     }
   }
 
@@ -226,7 +239,14 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
         </p>
       )}
 
-      {complete && (
+      {complete && playoffUnknown && (
+        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2" role="alert">
+          Could not read the playoff status — reload the page before creating or
+          changing the bracket. Acting now may be refused by the server.
+        </p>
+      )}
+
+      {complete && !playoffUnknown && (
         playoff && playoff.matches > 0 ? (
           <div className="bg-white rounded-lg p-4 space-y-2 border border-gray-200 shadow-sm">
             <p className="text-sm text-gray-700">
@@ -235,7 +255,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
             {playoff.played === 0 ? (
               <button onClick={regeneratePlayoff} disabled={busy}
                 className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-500 text-xs hover:text-gray-700 hover:border-gray-400 disabled:opacity-50">
-                {busy ? 'Rebuilding…' : 'Rebuild the playoff bracket'}
+                {busy && action === 'playoff' ? 'Rebuilding…' : 'Rebuild the playoff bracket'}
               </button>
             ) : (
               <p className="text-xs text-gray-500">
@@ -246,7 +266,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
         ) : (
           <button onClick={generatePlayoff} disabled={busy}
             className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
-            {busy ? 'Creating…' : 'Create playoff matches'}
+            {busy && action === 'playoff' ? 'Creating…' : 'Create playoff matches'}
           </button>
         )
       )}
@@ -259,7 +279,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
         <div className="border-t border-gray-200 pt-4">
           <button onClick={reset} disabled={busy}
             className="px-4 py-2 rounded-md bg-white text-red-600 font-semibold border border-red-300 hover:bg-red-50 disabled:opacity-50">
-            {busy ? 'Resetting…' : 'Reset alliance selection'}
+            {busy && action === 'reset' ? 'Resetting…' : 'Reset alliance selection'}
           </button>
           <p className="text-xs text-gray-500 mt-1.5">
             Clears every pick made so far for all three alliances. This cannot be undone.

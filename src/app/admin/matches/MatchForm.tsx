@@ -156,6 +156,10 @@ export default function MatchForm({ match, teamNames }: {
       });
       if (res.ok) {
         setStartStatus('ok');
+        // Only the confirmation self-clears; an error stays until the next
+        // press. The request is fast enough that "Starting…" flashes by, so
+        // a successful press needs something that outlives it.
+        setTimeout(() => setStartStatus('idle'), 4000);
       } else {
         const data = await res.json().catch(() => ({}));
         setStartStatus('error');
@@ -166,15 +170,16 @@ export default function MatchForm({ match, teamNames }: {
       setStartError('Could not start — check the connection and try again');
     } finally {
       setStarting(false);
-      // The request is fast enough that "Starting…" can flash by unseen, so the
-      // confirmation has to outlive it — otherwise a successful press looks
-      // identical to one that never registered.
-      setTimeout(() => setStartStatus('idle'), 4000);
     }
   }
 
   const num = (v: number, set: (n: number) => void, max = MAX_WILDFIRE) => (
     <input type="number" min={0} max={max} value={v}
+      // A focused number input takes the scroll wheel as a value change, so
+      // scrolling down to the Save button silently edits the field the
+      // referee just typed into.
+      onWheel={(e) => e.currentTarget.blur()}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } }}
       onChange={(e) => {
         const n = Math.trunc(Number(e.target.value));
         set(Number.isFinite(n) ? Math.min(max, Math.max(0, n)) : 0);

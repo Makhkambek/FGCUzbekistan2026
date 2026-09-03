@@ -119,3 +119,40 @@ describe('buildDisplayPayload — result', () => {
     expect(p.red.score).toBe(100 + p.red.penalty);
   });
 });
+
+describe('buildDisplayPayload — красная карточка в плей-офф', () => {
+  // Мануал, RED CARD: «In PLAYOFF and FINAL MATCHES … the full TOURNAMENT
+  // ALLIANCE receives 0 points for that specific MATCH». Таблица альянсов
+  // это учитывала, а экран проектора показывал сырой счёт — зал и таблица
+  // противоречили друг другу и победитель объявлялся неверно.
+  const playoffRow = (over: Partial<any> = {}) => row({
+    phase: 'playoff', played: 1, red_alliance_id: 1, blue_alliance_id: 3,
+    suppression_red: 200, suppression_blue: 150, ...over,
+  });
+
+  it('обнуляет весь альянс и отдаёт победу сопернику', () => {
+    const p = buildDisplayPayload(
+      { phase: 'result', matchId: 1 }, playoffRow({ card_red2: 'red' }), teamNames);
+    if (p.phase !== 'result') throw new Error('unreachable');
+    expect(p.red.score).toBe(0);
+    expect(p.blue.score).toBe(150);
+    expect(p.winner).toBe('blue');
+  });
+
+  it('белая карточка в плей-офф счёт альянса не трогает', () => {
+    const p = buildDisplayPayload(
+      { phase: 'result', matchId: 1 }, playoffRow({ card_red2: 'white' }), teamNames);
+    if (p.phase !== 'result') throw new Error('unreachable');
+    expect(p.red.score).toBe(200);
+    expect(p.winner).toBe('red');
+  });
+
+  it('в квалификации красная карточка альянс не обнуляет', () => {
+    const p = buildDisplayPayload(
+      { phase: 'result', matchId: 1 },
+      row({ played: 1, suppression_red: 200, suppression_blue: 150, card_red2: 'red' }),
+      teamNames);
+    if (p.phase !== 'result') throw new Error('unreachable');
+    expect(p.red.score).toBe(200);
+  });
+});

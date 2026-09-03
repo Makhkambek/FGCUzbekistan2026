@@ -80,9 +80,18 @@ export default function DisplayPage() {
   // failure: without this the screen keeps showing the last score it got,
   // with no hint that the server stopped answering minutes ago.
   const [stale, setStale] = useState(false);
-  const lastSuccessAt = useRef(Date.now());
+  // Two independent pollers feed this screen. /api/standings is the heavy one
+  // (it re-scores every match), so it is the more likely of the two to start
+  // failing under load — the banner has to watch both, or half the screen
+  // freezes silently while the other half looks healthy.
+  const lastStandingsAt = useRef(0);
+  // 0 until the first response — set inside the effect, since reading the
+  // clock during render is not pure.
+  const lastSuccessAt = useRef(0);
 
   useEffect(() => {
+    lastSuccessAt.current = Date.now();
+    lastStandingsAt.current = Date.now();
     let requestId = 0;
     let latest = 0;
     const load = () => {
@@ -103,8 +112,11 @@ export default function DisplayPage() {
     const timer = setInterval(load, POLL_MS);
     // Three missed polls — the screen is refreshed every POLL_MS, so this
     // stays quiet through a single slow response.
-    const staleTimer = setInterval(
-      () => setStale(Date.now() - lastSuccessAt.current > POLL_MS * 3 + 2_000), 2_000);
+    const staleTimer = setInterval(() => {
+      const cutoff = POLL_MS * 3 + 2_000;
+      const oldest = Math.min(lastSuccessAt.current, lastStandingsAt.current);
+      setStale(Date.now() - oldest > cutoff);
+    }, 2_000);
     return () => { clearInterval(timer); clearInterval(staleTimer); };
   }, []);
 
@@ -115,11 +127,15 @@ export default function DisplayPage() {
     let cancelled = false;
     const load = () => {
       fetch('/api/standings', { cache: 'no-store' })
-        .then((r) => r.json())
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
         .then((json) => {
           if (cancelled) return;
           setMatches(json.matches);
           setAllianceStandings(json.allianceStandings ?? null);
+          lastStandingsAt.current = Date.now();
         })
         .catch(() => {});
     };
@@ -128,7 +144,13 @@ export default function DisplayPage() {
     return () => { cancelled = true; clearInterval(timer); };
   }, []);
 
-  const isPlayoffMode = !!(allianceStandings && allianceStandings.length === 3);
+  // The draft being finished is not the same thing as the playoff having
+  // started: /api/standings fills allianceStandings the moment the last pick
+  // is made. Keyed on that alone, the projector jumped to an empty PLAYOFFS
+  // table right at the ceremony and could never be sent back to the
+  // qualification rankings. The bracket existing is the real signal.
+  const playoffBracketExists = !!matches?.some((m) => m.phase === 'playoff');
+  const isPlayoffMode = !!(allianceStandings && allianceStandings.length === 3 && playoffBracketExists);
 
   // Plain qualification standings — not a broadcast moment, just the same
   // public board that's already at "/". No dark canvas, no scaling.
@@ -142,7 +164,9 @@ export default function DisplayPage() {
             <p className="text-xs text-gray-500 leading-tight">Igniting Innovation · live results and rankings</p>
           </div>
         </header>
-        <main className="p-4 sm:p-8">
+        {/* The same board the hall reads on their phones, but this one is
+            seen from 15+ metres — scale it up for the projector. */}
+        <main className="p-4 sm:p-8" style={{ zoom: 1.6 }}>
           <StandingsTable />
         </main>
       </div>
@@ -157,12 +181,24 @@ export default function DisplayPage() {
         .sort((a, b) => a.number - b.number);
       if (upcoming.length) return upcoming[0];
     }
-    const anyUnplayed = matches.filter((m) => !m.played)
+    // Excluding the match on screen: when the live match is the last unplayed
+    // one of its phase, the fallback below used to hand back that same match
+    // and the ticker announced it as "next".
+    const onScreen = data && data.phase !== 'standings'
+      ? { phase: data.matchPhase, number: data.matchNumber } : null;
+    const anyUnplayed = matches
+      .filter((m) => !m.played
+        && !(onScreen && m.phase === onScreen.phase && m.number === onScreen.number))
       .sort((a, b) => (a.phase === b.phase ? a.number - b.number : a.phase === 'qualification' ? -1 : 1));
     return anyUnplayed[0] ?? null;
   })();
 
-  const nextMatchLabel = nextMatch
+  // matches === null means /api/standings has not answered yet (or is
+  // failing) — that is not the same as "nothing left to play", which is what
+  // the ticker's own fallback says.
+  const nextMatchLabel = matches === null
+    ? '—'
+    : nextMatch
     ? `${matchLabel(nextMatch.phase, nextMatch.number)} · ${
       nextMatch.redSeed !== null && nextMatch.blueSeed !== null
         ? `Alliance ${nextMatch.redSeed} vs Alliance ${nextMatch.blueSeed}`
@@ -263,7 +299,7 @@ function MatchScreen({ data, nextMatchLabel, clock }: {
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 40, marginBottom: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 34 }}>
           <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 82, lineHeight: 0.9, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-            Results
+            {isResult ? 'Results' : 'On field'}
           </div>
           <Badge label="Match" value={matchLabel(data.matchPhase, data.matchNumber)} />
         </div>
@@ -493,8 +529,14 @@ function PlayoffScreen({ standings, nextMatchLabel, clock }: {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'oklch(0.78 0.18 350 / 0.28)',
                 color: 'oklch(0.2 0.02 250)', fontFamily: F_HEAD, fontWeight: 700, fontSize: 52, lineHeight: 1,
+                flexDirection: 'column', gap: 2,
               }}>
                 {i + 1}
+                {/* The ticker announces "Alliance 2 vs Alliance 3" — without
+                    the seed here the hall cannot find those in the table. */}
+                <span style={{ fontFamily: F_MONO, fontSize: 17, fontWeight: 600, letterSpacing: '0.1em', opacity: 0.75 }}>
+                  A{a.seed}
+                </span>
               </div>
               {a.teams.map((name, ti) => (
                 <div key={ti} style={{

@@ -77,11 +77,14 @@ export default function StandingsTable() {
   // "the server has been unreachable for a minute" — the badge said `live`
   // either way. The hall would keep reading a frozen scoreboard.
   const [stale, setStale] = useState(false);
-  const lastSuccessAt = useRef(Date.now());
+  // 0 until the first response — set inside the effect, since reading the
+  // clock during render is not pure.
+  const lastSuccessAt = useRef(0);
 
   useEffect(() => {
     let currentController: AbortController | null = null;
 
+    lastSuccessAt.current = Date.now();
     const load = () => {
       const requestId = ++latestRequestId.current;
       currentController?.abort();
@@ -125,7 +128,14 @@ export default function StandingsTable() {
     };
   }, []);
 
-  if (!data) return <p className="text-gray-400">Loading…</p>;
+  if (!data) {
+    // Before the first successful response there is no table to mark stale —
+    // a spectator opening the page while the server is down used to sit on
+    // "Loading…" with no hint that anything was wrong.
+    return stale
+      ? <p className="text-red-600 text-sm">No connection to the scoring server — retrying…</p>
+      : <p className="text-gray-400">Loading…</p>;
+  }
 
   const q = query.trim().toLowerCase();
   const isHit = (m: Match) =>

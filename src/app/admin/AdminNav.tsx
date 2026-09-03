@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 const SECTIONS = [
   { href: '/admin/teams', label: 'Teams' },
@@ -13,8 +14,18 @@ export default function AdminNav() {
   const pathname = usePathname();
   const router = useRouter();
 
+  const [logoutError, setLogoutError] = useState('');
+
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    // Redirecting regardless of the result made a failed logout look like a
+    // successful one: the cookie stays valid, so anyone walking up to the
+    // laptop is still signed in.
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!res.ok) { setLogoutError('Could not sign out — try again'); return; }
+    } catch {
+      setLogoutError('Could not sign out — check the connection'); return;
+    }
     router.push('/login');
   }
 
@@ -45,6 +56,9 @@ export default function AdminNav() {
           className="px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold text-gray-500 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 whitespace-nowrap">
           Public ↗
         </a>
+        {logoutError && (
+          <span className="text-xs text-red-600 whitespace-nowrap" role="alert">{logoutError}</span>
+        )}
         <button onClick={logout}
           className="px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold text-red-600 border border-red-200 hover:bg-red-50 whitespace-nowrap">
           Log out

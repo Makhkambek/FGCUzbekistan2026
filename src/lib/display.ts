@@ -1,5 +1,4 @@
-import { computeMatchScores } from './scoring/match';
-import { matchRowToInput } from './standings';
+import { matchScoresForDisplay } from './standings';
 import type { MatchRow } from './db/matches';
 
 export type DisplayPhase = 'standings' | 'live' | 'result';
@@ -71,7 +70,7 @@ export function buildDisplayPayload(
     };
   }
 
-  const scores = computeMatchScores(matchRowToInput(match));
+  const scores = matchScoresForDisplay(match);
   const winner = scores.red > scores.blue ? 'red' : scores.blue > scores.red ? 'blue' : 'tie';
 
   return {

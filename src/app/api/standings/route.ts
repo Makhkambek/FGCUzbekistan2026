@@ -3,8 +3,7 @@ import { listTeams } from '@/lib/db/teams';
 import { listMatches } from '@/lib/db/matches';
 import type { MatchRow } from '@/lib/db/matches';
 import { getAlliances } from '@/lib/db/alliances';
-import { standingsFromRows, matchRowToInput } from '@/lib/standings';
-import { computeMatchScores } from '@/lib/scoring/match';
+import { standingsFromRows, matchScoresForDisplay } from '@/lib/standings';
 import type { MatchScores } from '@/lib/scoring/types';
 import { allianceMatchScore, computeAllianceStandings } from '@/lib/alliances/playoff';
 
@@ -23,7 +22,10 @@ export async function GET() {
 
   for (const r of rows) {
     try {
-      scoresById.set(r.id, computeMatchScores(matchRowToInput(r)));
+      // matchScoresForDisplay, not computeMatchScores: a playoff red card
+      // zeroes the alliance, and the match list must print the same number
+      // the projector and the alliance table print.
+      scoresById.set(r.id, matchScoresForDisplay(r));
       validRows.push(r);
     } catch (err) {
       console.error(`/api/standings: failed to score match id=${r.id} (#${r.match_number}), skipping row`, err);

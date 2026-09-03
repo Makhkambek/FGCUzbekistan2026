@@ -6,7 +6,7 @@ import type { AllianceRow } from '@/lib/db/alliances';
 import { listTeams } from '@/lib/db/teams';
 import { listMatches } from '@/lib/db/matches';
 import { standingsFromRows } from '@/lib/standings';
-import { initialSelection, setPick, clearPick } from '@/lib/alliances/selection';
+import { initialSelection, setPick, clearPick, NotEnoughTeamsError, MIN_TEAMS } from '@/lib/alliances/selection';
 import type { SelectionState, PickSlot } from '@/lib/alliances/selection';
 
 const pickSchema = z.object({
@@ -14,8 +14,6 @@ const pickSchema = z.object({
   slotIndex: z.union([z.literal(0), z.literal(1)]),
   teamId: z.number().int().positive(),
 });
-
-const MIN_TEAMS = 9;
 
 function unauthorized() {
   return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
@@ -101,9 +99,13 @@ export async function POST(req: NextRequest) {
         parsed.data.allianceSeed, parsed.data.slotIndex, parsed.data.teamId));
     return NextResponse.json({ state: next });
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Pick failed';
-    if (message.includes(String(MIN_TEAMS))) return notEnoughTeams(ranked.length);
-    return NextResponse.json({ error: message }, { status: 400 });
+    if (e instanceof NotEnoughTeamsError) return notEnoughTeams(ranked.length);
+    // A rejected pick is the operator's problem (400); anything else is the
+    // database's, and saying "not enough teams" for a lock timeout would send
+    // the referee hunting for a problem that does not exist.
+    if (e instanceof RangeError || e instanceof TypeError) throw e;
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Pick failed' }, { status: 400 });
   }
 }
 
@@ -132,8 +134,10 @@ export async function DELETE(req: NextRequest) {
       const next = await mutateAlliances((rows) =>
         clearPick(stateFromRows(rows, ranked), parsed.data.seed, parsed.data.slot));
       return NextResponse.json({ state: next });
-    } catch {
-      return notEnoughTeams(ranked.length);
+    } catch (e) {
+      if (e instanceof NotEnoughTeamsError) return notEnoughTeams(ranked.length);
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : 'Could not clear the pick' }, { status: 500 });
     }
   }
 
@@ -141,8 +145,10 @@ export async function DELETE(req: NextRequest) {
   const ranked = await rankedTeamIds();
   try {
     await saveAlliances(initialSelection(ranked));
-  } catch {
-    return notEnoughTeams(ranked.length);
+  } catch (e) {
+    if (e instanceof NotEnoughTeamsError) return notEnoughTeams(ranked.length);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Could not reset the selection' }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

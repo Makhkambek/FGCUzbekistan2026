@@ -1,4 +1,5 @@
 import { computeMatchScores } from './scoring/match';
+import { allianceMatchScore } from './alliances/playoff';
 import { computeTeamStanding, sortStandings } from './scoring/ranking';
 import type { TeamMatchResult, TeamStanding } from './scoring/ranking';
 import type { ClimbPosition, MatchInput } from './scoring/types';
@@ -21,6 +22,26 @@ export function matchRowToInput(row: MatchRow): MatchInput {
       minorFouls: row.minor_fouls_blue,
       majorFouls: row.major_fouls_blue,
     },
+  };
+}
+
+/**
+ * The scores as they should be SHOWN for one match: the raw computation,
+ * with the playoff red-card rule applied (a red card zeroes the whole
+ * alliance for that match). Every surface that prints a match score must go
+ * through this — the alliance table applied the rule and the projector and
+ * match lists did not, so the same playoff match showed two different scores.
+ *
+ * Qualification is untouched here: there a card zeroes only the carded team,
+ * inside the ranking, not the alliance's match score.
+ */
+export function matchScoresForDisplay(row: MatchRow) {
+  const raw = computeMatchScores(matchRowToInput(row));
+  if (row.phase !== 'playoff') return raw;
+  return {
+    ...raw,
+    red: allianceMatchScore(raw.red, [row.card_red1, row.card_red2, row.card_red3]),
+    blue: allianceMatchScore(raw.blue, [row.card_blue1, row.card_blue2, row.card_blue3]),
   };
 }
 

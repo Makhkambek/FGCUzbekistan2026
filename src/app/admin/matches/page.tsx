@@ -2,8 +2,7 @@ import { requireSession } from '@/lib/auth/require-session';
 import { listMatches } from '@/lib/db/matches';
 import { listTeams } from '@/lib/db/teams';
 import { getAlliances } from '@/lib/db/alliances';
-import { matchRowToInput } from '@/lib/standings';
-import { computeMatchScores } from '@/lib/scoring/match';
+import { matchScoresForDisplay } from '@/lib/standings';
 import MatchList from './MatchList';
 import ShowStandingsButton from './ShowStandingsButton';
 
@@ -21,7 +20,7 @@ export default async function MatchesPage() {
       // Isolated the same way /api/standings isolates it: one row with bad
       // data must not take down the whole list, it just shows no score.
       try {
-        const s = computeMatchScores(matchRowToInput(m));
+        const s = matchScoresForDisplay(m);
         redScore = s.red;
         blueScore = s.blue;
       } catch (err) {

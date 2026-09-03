@@ -32,6 +32,11 @@ export async function mutateAlliances(
 ): Promise<SelectionState> {
   const conn = await getPool().getConnection();
   try {
+    // Pinned explicitly rather than trusting the server default: under READ
+    // COMMITTED a locking read that matches no rows takes no lock at all, so
+    // the very first pick of the day — when the table is still empty — would
+    // not be serialized against a simultaneous one.
+    await conn.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
     await conn.beginTransaction();
     const [rows] = await conn.execute<AllianceRow[]>(
       `SELECT id, seed, captain_team_id, pick1_team_id, pick2_team_id

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function SchedulePanel({ matchCount }: { matchCount: number }) {
+  const hasSchedule = matchCount > 0;
   const router = useRouter();
   const [matchesPerTeam, setMatchesPerTeam] = useState(5);
   const [message, setMessage] = useState('');
@@ -10,6 +11,12 @@ export default function SchedulePanel({ matchCount }: { matchCount: number }) {
   const [resetting, setResetting] = useState(false);
 
   async function generate() {
+    // Reset asks twice; Generate asked nothing, yet it deletes and replaces
+    // the whole qualification schedule. Printed sheets are already in the
+    // teams' hands by then — the pairings would simply change under them.
+    if (hasSchedule && !window.confirm(
+      'A schedule already exists. Generating again deletes it and creates a different one — '
+      + 'any printed match sheets become wrong. Continue?')) return;
     setMessage('');
     setBusy(true);
     try {
@@ -48,7 +55,13 @@ export default function SchedulePanel({ matchCount }: { matchCount: number }) {
       <div className="flex items-center gap-2">
         <label className="text-sm text-gray-500">Matches per team</label>
         <input type="number" min={1} max={20} value={matchesPerTeam}
-          onChange={(e) => setMatchesPerTeam(Number(e.target.value))}
+          // Clearing the field used to leave 0 behind, which the API rejects
+          // as "Invalid parameters" — clamp into the range the server accepts.
+          onChange={(e) => {
+            const n = Math.trunc(Number(e.target.value));
+            setMatchesPerTeam(Number.isFinite(n) && n > 0 ? Math.min(20, n) : 1);
+          }}
+          onWheel={(e) => e.currentTarget.blur()}
           className="w-20 px-3 py-2 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
         <button onClick={generate} disabled={busy || resetting}
           className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">

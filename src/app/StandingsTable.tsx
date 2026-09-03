@@ -73,6 +73,11 @@ export default function StandingsTable() {
   // A monotonic request id fixes that — apply a response only while it is
   // still the most recently started request.
   const latestRequestId = useRef(0);
+  // Nothing on screen used to distinguish "the score has not changed" from
+  // "the server has been unreachable for a minute" — the badge said `live`
+  // either way. The hall would keep reading a frozen scoreboard.
+  const [stale, setStale] = useState(false);
+  const lastSuccessAt = useRef(Date.now());
 
   useEffect(() => {
     let currentController: AbortController | null = null;
@@ -84,20 +89,38 @@ export default function StandingsTable() {
       currentController = controller;
 
       fetch('/api/standings', { signal: controller.signal })
-        .then((r) => r.json())
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
         .then((json) => {
           if (latestRequestId.current === requestId) {
             setData(json);
             setLastUpdate(new Date());
+            lastSuccessAt.current = Date.now();
+            setStale(false);
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          // An aborted request is not a failure — the newer one it made way
+          // for will refresh the timestamp.
+        });
     };
 
     load();
     const timer = setInterval(load, 10_000);
+    // Browsers throttle timers in background tabs, so a spectator coming back
+    // to the tab would stare at a minute-old table until the next tick.
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    // 25s = two missed polls; short enough to notice, long enough not to
+    // flicker on one slow response.
+    const staleTimer = setInterval(
+      () => setStale(Date.now() - lastSuccessAt.current > 25_000), 2_000);
     return () => {
       clearInterval(timer);
+      clearInterval(staleTimer);
+      document.removeEventListener('visibilitychange', onVisible);
       currentController?.abort();
     };
   }, []);
@@ -133,7 +156,11 @@ export default function StandingsTable() {
           </button>
         </div>
         {lastUpdate && (
-          <span className="text-[10px] text-green-600 font-semibold animate-pulse">live</span>
+          stale
+            ? <span className="text-[10px] text-red-600 font-semibold">
+                NO CONNECTION · last update {lastUpdate.toLocaleTimeString()}
+              </span>
+            : <span className="text-[10px] text-green-600 font-semibold animate-pulse">live</span>
         )}
       </div>
 

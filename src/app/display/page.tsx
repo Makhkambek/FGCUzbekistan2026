@@ -1,6 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import StandingsTable from '../StandingsTable';
+import FullscreenButton from './FullscreenButton';
 
 interface AllianceLineup { teams: string[] }
 interface AllianceBreakdown { suppression: number; multiplier: number; partnerClimbPoints: number; penalty: number }
@@ -75,19 +76,36 @@ export default function DisplayPage() {
   const scale = useCanvasScale();
   const clock = useClock();
 
+  // A projector nobody is watching closely is the worst place for a silent
+  // failure: without this the screen keeps showing the last score it got,
+  // with no hint that the server stopped answering minutes ago.
+  const [stale, setStale] = useState(false);
+  const lastSuccessAt = useRef(Date.now());
+
   useEffect(() => {
     let requestId = 0;
     let latest = 0;
     const load = () => {
       const id = ++requestId;
       fetch('/api/display/state', { cache: 'no-store' })
-        .then((r) => r.json())
-        .then((json) => { if (id > latest) { latest = id; setData(json); } })
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then((json) => {
+          if (id > latest) { latest = id; setData(json); }
+          lastSuccessAt.current = Date.now();
+          setStale(false);
+        })
         .catch(() => {});
     };
     load();
     const timer = setInterval(load, POLL_MS);
-    return () => clearInterval(timer);
+    // Three missed polls — the screen is refreshed every POLL_MS, so this
+    // stays quiet through a single slow response.
+    const staleTimer = setInterval(
+      () => setStale(Date.now() - lastSuccessAt.current > POLL_MS * 3 + 2_000), 2_000);
+    return () => { clearInterval(timer); clearInterval(staleTimer); };
   }, []);
 
   // Only needed for the dark broadcast canvas (ticker + playoff table) — the
@@ -117,6 +135,7 @@ export default function DisplayPage() {
   if (data?.phase === 'standings' && !isPlayoffMode) {
     return (
       <div className="min-h-screen bg-gray-100 text-gray-900">
+        <FullscreenButton />
         <header className="bg-white border-b border-gray-200 sticky top-0 z-10 h-14 sm:h-16 flex items-center px-4 sm:px-8">
           <div>
             <h1 className="text-lg sm:text-xl font-bold leading-tight">FGC Uzbekistan 2026</h1>
@@ -169,7 +188,21 @@ export default function DisplayPage() {
       }}>
         <div style={gridTexture(isPlayoffMode ? 0.05 : 0.028)} />
 
-        {!data && <p style={{ color: 'oklch(1 0 0 / 0.4)', margin: 'auto' }}>Loading…</p>}
+        {!data && (
+          <p style={{ color: 'oklch(1 0 0 / 0.4)', margin: 'auto' }}>
+            {stale ? 'No connection to the scoring server' : 'Loading…'}
+          </p>
+        )}
+        {stale && data && (
+          <div style={{
+            position: 'absolute', top: 18, left: '50%', transform: 'translateX(-50%)',
+            padding: '6px 18px', borderRadius: 999, zIndex: 20,
+            background: 'oklch(0.55 0.22 25)', color: 'oklch(1 0 0)',
+            fontSize: 20, fontWeight: 700, letterSpacing: '0.08em',
+          }}>
+            NO CONNECTION
+          </div>
+        )}
 
         {data?.phase === 'standings' && isPlayoffMode && (
           <PlayoffScreen standings={allianceStandings!} nextMatchLabel={nextMatchLabel} clock={clock} />
@@ -178,6 +211,7 @@ export default function DisplayPage() {
           <MatchScreen data={data} nextMatchLabel={nextMatchLabel} clock={clock} />
         )}
       </div>
+      <FullscreenButton />
     </div>
   );
 }

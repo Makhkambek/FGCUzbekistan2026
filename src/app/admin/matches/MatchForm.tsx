@@ -18,8 +18,11 @@ const MAX_WILDFIRE = 500; // suppression, extinguisher
 const MAX_PARTNER_CLIMB = 2;
 const MAX_FOULS = 20;
 
-const INPUT_CLASS = 'w-24 px-2 py-1 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100';
-const SELECT_CLASS = 'px-2 py-1 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100';
+// text-base = 16px: anything smaller makes iOS zoom the page on focus,
+// which on a referee's tablet reads as the form jumping around. min-h-11
+// (44px) is the smallest comfortable tap target.
+const INPUT_CLASS = 'w-24 px-2 py-1 text-base min-h-11 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100';
+const SELECT_CLASS = 'px-2 py-1 text-base min-h-11 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100';
 
 type Trio<T> = [T, T, T];
 

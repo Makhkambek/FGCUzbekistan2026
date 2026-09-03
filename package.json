@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "backup": "mkdir -p backups && mysqldump --single-transaction -u root fgc > backups/fgc-$(date +%Y%m%d-%H%M%S).sql && ls -lh backups | tail -1"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

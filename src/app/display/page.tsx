@@ -408,24 +408,34 @@ function AlliancePanel({ color, data, isWinner, shared }: {
 }) {
   const breakdown = 'score' in data ? data : null;
   const theme = ALLIANCE_THEME[color];
-  const winOutline = color === 'red' ? 'oklch(0.95 0.1 90 / 0.85)' : 'oklch(0.92 0.1 195 / 0.85)';
+  // A 3px outline was invisible from the back of the hall, and on the event
+  // gradient it had even less to contrast against — the winner is now marked
+  // by a thick bright ring plus a glow that reads at a distance.
+  const winOutline = color === 'red' ? 'oklch(0.97 0.13 95)' : 'oklch(0.95 0.12 195)';
 
   return (
     <section style={{
       position: 'relative', display: 'flex', flexDirection: 'column', borderRadius: 20, overflow: 'hidden',
       background: theme.gradient, boxShadow: theme.shadow,
-      ...(isWinner ? { outline: `${winOutline} solid 3px`, outlineOffset: -3 } : {}),
+      ...(isWinner
+        ? {
+            outline: `${winOutline} solid 10px`,
+            outlineOffset: -10,
+            boxShadow: `${theme.shadow}, 0 0 0 6px oklch(1 0 0 / 0.35), 0 0 60px 10px ${winOutline}`,
+          }
+        : {}),
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, height: 62,
         padding: isWinner ? '0 0 0 30px' : '0 30px', background: 'oklch(0 0 0 / 0.14)',
+        ...(isWinner ? { borderBottom: `3px solid ${winOutline}` } : {}),
       }}>
         <div style={{ fontFamily: F_MONO, fontSize: 21, fontWeight: 600, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.9)' }}>
           {theme.label}
         </div>
         {isWinner && (
-          <div style={{ height: '100%', display: 'flex', alignItems: 'center', padding: '0 30px', background: 'oklch(0.95 0.02 195)', color: 'oklch(0.22 0.02 250)' }}>
-            <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 38, lineHeight: 1, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Win</div>
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', padding: '0 34px', background: winOutline, color: 'oklch(0.2 0.02 250)' }}>
+            <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 44, lineHeight: 1, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Win</div>
           </div>
         )}
       </div>

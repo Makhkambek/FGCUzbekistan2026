@@ -10,9 +10,9 @@ export default async function AlliancesPage() {
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 p-8 space-y-6">
+    <main className="min-h-screen bg-gray-100 text-gray-900 p-8 space-y-6">
       <h1 className="text-2xl font-bold">Выбор альянсов</h1>
-      <p className="text-slate-400 text-sm">
+      <p className="text-gray-500 text-sm">
         Капитаны — топ-3 по рейтингу. Порядок выбора змейкой: 1→2→3, затем 3→2→1.
         Если капитан выбирает нижестоящего капитана, тот уходит в его альянс,
         а капитанство переходит следующей свободной команде.

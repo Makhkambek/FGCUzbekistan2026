@@ -120,13 +120,15 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
     if (ok) generatePlayoff();
   }
 
-  if (loading) return <p className="text-slate-400">Загрузка…</p>;
+  if (loading) return <p className="text-gray-500">Загрузка…</p>;
 
   if (!state) {
     return (
       <div className="space-y-4">
-        <p className="text-red-400 text-sm" role="alert">{error || 'Не удалось загрузить данные'}</p>
-        <button onClick={load} className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 text-sm">
+        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2" role="alert">
+          {error || 'Не удалось загрузить данные'}
+        </p>
+        <button onClick={load} className="px-4 py-2 rounded-md bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 text-sm">
           Повторить
         </button>
       </div>
@@ -147,69 +149,73 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
           const captainPoachable = picker !== null && isPickable(state, picker, a.captain);
           return (
             <div key={a.seed}
-              className={`p-4 rounded-lg bg-slate-900 ${picker === a.seed - 1 ? 'ring-2 ring-orange-500' : ''}`}>
-              <h3 className="font-semibold mb-2">Альянс {a.seed}</h3>
+              className={`p-4 rounded-lg bg-white border shadow-sm ${picker === a.seed - 1 ? 'ring-2 ring-amber-500 border-amber-200' : 'border-gray-200'}`}>
+              <h3 className="font-semibold mb-2 text-gray-900">Альянс {a.seed}</h3>
               {captainPoachable ? (
                 <button onClick={() => pick(a.captain)} disabled={busy}
-                  className="w-full text-left text-sm p-2 -mx-1 rounded border border-amber-500 bg-amber-950/40 hover:bg-amber-900/50 disabled:opacity-50">
-                  <span className="block text-amber-400 font-medium">
+                  className="w-full text-left text-sm p-2 -mx-1 rounded-md border border-amber-400 bg-amber-50 hover:bg-amber-100 disabled:opacity-50">
+                  <span className="block text-amber-700 font-medium">
                     ⇪ Переманить капитана: {teamNames[a.captain] ?? a.captain}
                   </span>
-                  <span className="block text-xs text-amber-200/80 mt-0.5">
+                  <span className="block text-xs text-amber-600 mt-0.5">
                     Перейдёт в выбирающий альянс; капитаном альянса {a.seed} станет
                     следующая свободная команда по рейтингу
                   </span>
                 </button>
               ) : (
-                <p className="text-sm">Капитан: {teamNames[a.captain] ?? a.captain}</p>
+                <p className="text-sm text-gray-900">Капитан: {teamNames[a.captain] ?? a.captain}</p>
               )}
               {a.picks.map((p, i) => (
-                <p key={p} className="text-sm text-slate-400">Пик {i + 1}: {teamNames[p] ?? p}</p>
+                <p key={p} className="text-sm text-gray-500">Пик {i + 1}: {teamNames[p] ?? p}</p>
               ))}
             </div>
           );
         })}
       </div>
 
-      {error && <p className="text-red-400 text-sm" role="alert">{error}</p>}
+      {error && (
+        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2" role="alert">
+          {error}
+        </p>
+      )}
 
       {picker !== null ? (
-        <section className="bg-slate-900 rounded-lg p-6">
-          <h3 className="font-semibold mb-3">Выбирает альянс {picker + 1}</h3>
+        <section className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
+          <h3 className="font-semibold mb-3 text-gray-900">Выбирает альянс {picker + 1}</h3>
           <div className="flex flex-wrap gap-2">
             {ranked.filter((id) => !taken.has(id)).map((id) => (
               <button key={id} onClick={() => pick(id)} disabled={busy}
-                className="px-3 py-2 rounded bg-slate-800 hover:bg-slate-700 text-sm disabled:opacity-50">
+                className="px-3 py-2 rounded-md bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 text-sm disabled:opacity-50">
                 {teamNames[id] ?? id}
               </button>
             ))}
           </div>
         </section>
       ) : playoff && playoff.matches > 0 ? (
-        <div className="bg-slate-900 rounded-lg p-4 space-y-2">
-          <p className="text-sm text-slate-300">
+        <div className="bg-white rounded-lg p-4 space-y-2 border border-gray-200 shadow-sm">
+          <p className="text-sm text-gray-700">
             Матчи плей-оффа созданы: {playoff.matches}, сыграно: {playoff.played}
           </p>
           {playoff.played === 0 ? (
             <button onClick={regeneratePlayoff} disabled={busy}
-              className="px-3 py-1.5 rounded border border-slate-700 text-slate-400 text-xs hover:text-slate-200 hover:border-slate-500 disabled:opacity-50">
+              className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-500 text-xs hover:text-gray-700 hover:border-gray-400 disabled:opacity-50">
               {busy ? 'Пересоздание…' : 'Пересоздать сетку плей-оффа заново'}
             </button>
           ) : (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-gray-500">
               Пересоздание недоступно — есть сыгранные матчи плей-оффа
             </p>
           )}
         </div>
       ) : (
         <button onClick={generatePlayoff} disabled={busy}
-          className="px-4 py-2 rounded bg-orange-600 hover:bg-orange-500 disabled:opacity-50">
+          className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
           {busy ? 'Создание…' : 'Создать матчи плей-оффа'}
         </button>
       )}
 
       <button onClick={reset} disabled={busy}
-        className="text-sm text-slate-500 hover:text-slate-300 disabled:opacity-50">
+        className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50">
         Сбросить выбор альянсов
       </button>
     </div>

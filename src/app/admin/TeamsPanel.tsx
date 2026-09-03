@@ -41,24 +41,24 @@ export default function TeamsPanel({ teams }: { teams: { id: number; name: strin
   }
 
   return (
-    <section className="bg-slate-900 rounded-lg p-6 space-y-4">
-      <h2 className="text-lg font-semibold">Команды ({teams.length})</h2>
+    <section className="bg-white rounded-lg p-6 space-y-4 border border-gray-200 shadow-sm">
+      <h2 className="text-lg font-semibold text-gray-900">Команды ({teams.length})</h2>
       <div className="flex gap-2">
-        <input className="flex-1 px-3 py-2 rounded bg-slate-800 border border-slate-700"
+        <input className="flex-1 px-3 py-2 rounded-md bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
           placeholder="Название" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="w-40 px-3 py-2 rounded bg-slate-800 border border-slate-700"
+        <input className="w-40 px-3 py-2 rounded-md bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
           placeholder="Регион" value={region} onChange={(e) => setRegion(e.target.value)} />
         <button onClick={add} disabled={busy}
-          className="px-4 py-2 rounded bg-orange-600 hover:bg-orange-500 disabled:opacity-50">
+          className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
           {busy ? 'Добавление…' : 'Добавить'}
         </button>
       </div>
-      {message && <p className="text-sm text-red-400">{message}</p>}
-      <ul className="divide-y divide-slate-800">
+      {message && <p className="text-sm text-red-600">{message}</p>}
+      <ul className="divide-y divide-gray-100">
         {teams.map((t) => (
-          <li key={t.id} className="flex justify-between py-2">
-            <span>{t.id}. {t.name}{t.region ? ` · ${t.region}` : ''}</span>
-            <button onClick={() => remove(t.id)} className="text-red-400 hover:text-red-300">
+          <li key={t.id} className="flex justify-between items-center py-2 hover:bg-gray-50">
+            <span className="text-gray-900">{t.id}. {t.name}{t.region ? ` · ${t.region}` : ''}</span>
+            <button onClick={() => remove(t.id)} className="text-red-600 hover:text-red-700">
               Удалить
             </button>
           </li>

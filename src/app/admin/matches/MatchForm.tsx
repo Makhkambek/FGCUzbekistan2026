@@ -18,6 +18,9 @@ const MAX_WILDFIRE = 500; // suppression, extinguisher
 const MAX_PARTNER_CLIMB = 2;
 const MAX_FOULS = 20;
 
+const INPUT_CLASS = 'w-24 px-2 py-1 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100';
+const SELECT_CLASS = 'px-2 py-1 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100';
+
 type Trio<T> = [T, T, T];
 
 export default function MatchForm({ match, teamNames }: {
@@ -112,7 +115,7 @@ export default function MatchForm({ match, teamNames }: {
         set(Number.isFinite(n) ? Math.min(max, Math.max(0, n)) : 0);
         markDirty();
       }}
-      className="w-24 px-2 py-1 rounded bg-slate-800 border border-slate-700" />
+      className={INPUT_CLASS} />
   );
 
   const side = (
@@ -120,17 +123,20 @@ export default function MatchForm({ match, teamNames }: {
     climbs: Trio<ClimbPosition>, setClimbs: (t: Trio<ClimbPosition>) => void,
     cards: Trio<CardType>, setCards: (t: Trio<CardType>) => void,
   ) => (
-    <div className={`space-y-2 p-4 rounded ${color === 'red' ? 'bg-red-950/40' : 'bg-blue-950/40'}`}>
+    <div className={`space-y-2 p-4 rounded-md border ${color === 'red' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+      <p className={`text-xs font-semibold uppercase tracking-wide ${color === 'red' ? 'text-red-700' : 'text-blue-700'}`}>
+        {color === 'red' ? 'Красные' : 'Синие'}
+      </p>
       {teams.map((teamId, i) => (
         <div key={teamId} className="flex items-center gap-2">
-          <span className="w-40 truncate">{teamNames[teamId] ?? teamId}</span>
+          <span className="w-40 truncate text-gray-900">{teamNames[teamId] ?? teamId}</span>
           <select value={climbs[i]}
             onChange={(e) => {
               const next = [...climbs] as Trio<ClimbPosition>;
               next[i] = e.target.value as ClimbPosition; setClimbs(next);
               markDirty();
             }}
-            className="px-2 py-1 rounded bg-slate-800 border border-slate-700">
+            className={SELECT_CLASS}>
             {CLIMBS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
           <select value={cards[i]}
@@ -139,7 +145,7 @@ export default function MatchForm({ match, teamNames }: {
               next[i] = e.target.value as CardType; setCards(next);
               markDirty();
             }}
-            className="px-2 py-1 rounded bg-slate-800 border border-slate-700">
+            className={SELECT_CLASS}>
             {CARDS.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
@@ -148,15 +154,15 @@ export default function MatchForm({ match, teamNames }: {
   );
 
   return (
-    <div className="bg-slate-900 rounded-lg p-6 space-y-4">
+    <div className="bg-white rounded-lg p-6 space-y-4 border border-gray-200 shadow-sm">
       <div className="flex items-center gap-3">
-        <h3 className="font-semibold">Матч {match.match_number}</h3>
+        <h3 className="font-semibold text-gray-900">Матч {match.match_number}</h3>
         {match.played ? (
-          <span className="text-xs px-2 py-0.5 rounded bg-green-900/60 text-green-300 border border-green-700">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
             Сыграно
           </span>
         ) : (
-          <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
             Не сыграно
           </span>
         )}
@@ -167,7 +173,7 @@ export default function MatchForm({ match, teamNames }: {
         {side('blue', [match.blue1_id, match.blue2_id, match.blue3_id], climbBlue, setClimbBlue, cardBlue, setCardBlue)}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 text-sm">
+      <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
         <label className="flex justify-between items-center">Suppression красных {num(suppressionRed, setSuppressionRed)}</label>
         <label className="flex justify-between items-center">Suppression синих {num(suppressionBlue, setSuppressionBlue)}</label>
         <label className="flex justify-between items-center">Partner climbs красных {num(partnerRed, setPartnerRed, MAX_PARTNER_CLIMB)}</label>
@@ -181,25 +187,27 @@ export default function MatchForm({ match, teamNames }: {
         </label>
       </div>
 
-      <div className="flex items-center justify-between border-t border-slate-800 pt-4">
+      <div className="flex items-center justify-between border-t border-gray-100 pt-4">
         <div className="text-sm">
-          <span className="text-red-400 font-mono text-lg">{preview.red}</span>
-          <span className="text-slate-500"> : </span>
-          <span className="text-blue-400 font-mono text-lg">{preview.blue}</span>
-          <span className="text-slate-500 ml-4">
+          <span className="text-red-600 font-mono text-lg">{preview.red}</span>
+          <span className="text-gray-500"> : </span>
+          <span className="text-blue-600 font-mono text-lg">{preview.blue}</span>
+          <span className="text-gray-500 ml-4">
             множители {preview.redMultiplier.toFixed(2)} / {preview.blueMultiplier.toFixed(2)} ·
             coopertition {preview.coopertition}
           </span>
         </div>
         <div className="flex items-center gap-3">
           {saveStatus === 'ok' && (
-            <span className="text-sm text-green-400">✓ Сохранено</span>
+            <span className="text-sm text-green-600">✓ Сохранено</span>
           )}
           {saveStatus === 'error' && (
-            <span className="text-sm text-red-400">Ошибка: {saveError}</span>
+            <span className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+              Ошибка: {saveError}
+            </span>
           )}
           <button onClick={save} disabled={saving}
-            className="px-4 py-2 rounded bg-orange-600 hover:bg-orange-500 disabled:opacity-50">
+            className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
             {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
         </div>

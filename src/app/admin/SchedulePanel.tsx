@@ -25,20 +25,20 @@ export default function SchedulePanel({ matchCount }: { matchCount: number }) {
   }
 
   return (
-    <section className="bg-slate-900 rounded-lg p-6 space-y-4">
-      <h2 className="text-lg font-semibold">Расписание квалификации ({matchCount} матчей)</h2>
+    <section className="bg-white rounded-lg p-6 space-y-4 border border-gray-200 shadow-sm">
+      <h2 className="text-lg font-semibold text-gray-900">Расписание квалификации ({matchCount} матчей)</h2>
       <div className="flex items-center gap-2">
-        <label className="text-sm text-slate-400">Матчей на команду</label>
+        <label className="text-sm text-gray-500">Матчей на команду</label>
         <input type="number" min={1} max={20} value={matchesPerTeam}
           onChange={(e) => setMatchesPerTeam(Number(e.target.value))}
-          className="w-20 px-3 py-2 rounded bg-slate-800 border border-slate-700" />
+          className="w-20 px-3 py-2 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
         <button onClick={generate} disabled={busy}
-          className="px-4 py-2 rounded bg-orange-600 hover:bg-orange-500 disabled:opacity-50">
+          className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
           {busy ? 'Генерация…' : 'Сгенерировать'}
         </button>
       </div>
-      {message && <p className="text-sm text-slate-300">{message}</p>}
-      <p className="text-xs text-slate-500">
+      {message && <p className="text-sm text-gray-700">{message}</p>}
+      <p className="text-xs text-gray-500">
         Пересоздать расписание можно, только пока ни один матч не сыгран.
       </p>
     </section>

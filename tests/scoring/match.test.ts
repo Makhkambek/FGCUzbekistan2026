@@ -85,6 +85,38 @@ describe('computeMatchScores', () => {
     expect(r.red).toBe(20);
   });
 
+  it('округляет суммарный штраф один раз, а не каждый фол отдельно', () => {
+    const r = computeMatchScores({
+      extinguisher: 0,
+      red: alliance({ suppression: 0 }),
+      blue: alliance({ suppression: 21, minorFouls: 3 }),
+    });
+    // Мануал: «Multiple MINOR FOULS … are cumulative», «All fractional MATCH
+    // scores round up to the nearest whole number» → 3 фола = 15% от 21 = 3.15
+    // → округление вверх ОДИН раз = 4. Не 3 × ceil(1.05) = 6.
+    expect(r.bluePre).toBe(21);
+    expect(r.red).toBe(4);
+  });
+
+  it('складывает проценты minor и major до округления', () => {
+    const r = computeMatchScores({
+      extinguisher: 0,
+      red: alliance({ suppression: 0 }),
+      blue: alliance({ suppression: 33, minorFouls: 1, majorFouls: 1 }),
+    });
+    // 5% + 10% = 15% от 33 = 4.95 → 5. Не ceil(1.65) + ceil(3.3) = 2 + 4 = 6.
+    expect(r.red).toBe(5);
+  });
+
+  it('без фолов штрафа нет', () => {
+    const r = computeMatchScores({
+      extinguisher: 0,
+      red: alliance({ suppression: 0 }),
+      blue: alliance({ suppression: 21 }),
+    });
+    expect(r.red).toBe(0);
+  });
+
   it('считает процент штрафа от балла ДО штрафов', () => {
     const r = computeMatchScores({
       extinguisher: 0,

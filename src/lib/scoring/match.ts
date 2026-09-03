@@ -32,17 +32,27 @@ export function alliancePreScore(
     + coopertition;
 }
 
+/**
+ * Очки, которые соперник получает за фолы этого альянса.
+ *
+ * Мануал: MINOR FOUL — 5%, MAJOR FOUL — 10% от pre-penalty score; «Multiple
+ * MINOR/MAJOR FOULS assessed to a REGIONAL ALLIANCE during a single MATCH are
+ * cumulative» (§ определения) и «All fractional MATCH scores round up to the
+ * nearest whole number» (§ 4.5). Проценты складываются от одной и той же базы,
+ * округление вверх — один раз в конце, а не после каждого фола.
+ */
+export function foulPenalty(prePenaltyScore: number, offender: AllianceInput): number {
+  const percent = offender.minorFouls * 5 + offender.majorFouls * 10;
+  return ceilDiv(prePenaltyScore * percent, 100);
+}
+
 export function computeMatchScores(m: MatchInput): MatchScores {
   const coopertition = coopertitionBonus([...m.red.climbs, ...m.blue.climbs]);
   const redPre = alliancePreScore(m.red, m.extinguisher, coopertition);
   const bluePre = alliancePreScore(m.blue, m.extinguisher, coopertition);
 
-  const red = redPre
-    + m.blue.minorFouls * ceilDiv(bluePre * 5, 100)
-    + m.blue.majorFouls * ceilDiv(bluePre * 10, 100);
-  const blue = bluePre
-    + m.red.minorFouls * ceilDiv(redPre * 5, 100)
-    + m.red.majorFouls * ceilDiv(redPre * 10, 100);
+  const red = redPre + foulPenalty(bluePre, m.blue);
+  const blue = bluePre + foulPenalty(redPre, m.red);
 
   return {
     red, blue, redPre, bluePre, coopertition,

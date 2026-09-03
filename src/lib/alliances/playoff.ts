@@ -26,6 +26,25 @@ export function allianceTeams(slot: AllianceSlot): number[] {
   return [slot.captain, ...(slot.picks as [number, number])];
 }
 
+/**
+ * The score a TOURNAMENT ALLIANCE takes from one PLAYOFF match, given the
+ * cards of its three teams in that match.
+ *
+ * A RED CARD in the playoff zeroes the WHOLE alliance for that match, not
+ * just the carded team — that is the one place where the playoff differs from
+ * the qualification, where only the team itself is zeroed (see
+ * `teamResultsFromRows` in src/lib/standings.ts). Manual, RED CARD: "In
+ * PLAYOFF and FINAL MATCHES, when a team is issued a RED CARD, the full
+ * TOURNAMENT ALLIANCE receives 0 points for that specific MATCH."
+ *
+ * Only the red card does this. The manual states the WHITE CARD consequence
+ * for RANKING MATCHES only and says nothing about the playoff, so it is read
+ * literally here and leaves the alliance score alone.
+ */
+export function allianceMatchScore(score: number, cards: string[]): number {
+  return cards.some((c) => c === 'red') ? 0 : score;
+}
+
 export function computeAllianceStandings(
   scoresBySeed: { seed: number; score: number }[],
 ): AllianceScore[] {

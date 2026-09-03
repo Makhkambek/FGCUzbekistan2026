@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PLAYOFF_PAIRINGS, allianceTeams, computeAllianceStandings } from '@/lib/alliances/playoff';
+import { PLAYOFF_PAIRINGS, allianceMatchScore, allianceTeams, computeAllianceStandings } from '@/lib/alliances/playoff';
 
 describe('PLAYOFF_PAIRINGS', () => {
   it('три матча по Table 6-3 мануала', () => {
@@ -42,5 +42,32 @@ describe('computeAllianceStandings', () => {
     const r = computeAllianceStandings([{ seed: 1, score: 10 }]);
     expect(r[0]).toEqual({ seed: 1, total: 10, matchesPlayed: 1 });
     expect(r).toHaveLength(3);
+  });
+});
+
+describe('allianceMatchScore', () => {
+  it('без карточек возвращает балл матча как есть', () => {
+    expect(allianceMatchScore(140, ['none', 'none', 'none'])).toBe(140);
+  });
+
+  it('красная карточка у любой из трёх команд обнуляет ВЕСЬ альянс', () => {
+    // Мануал, RED CARD: «In PLAYOFF and FINAL MATCHES, when a team is issued
+    // a RED CARD, the full TOURNAMENT ALLIANCE receives 0 points for that
+    // specific MATCH» — в отличие от квалификации, где обнуляется только
+    // сама команда.
+    expect(allianceMatchScore(140, ['red', 'none', 'none'])).toBe(0);
+    expect(allianceMatchScore(140, ['none', 'red', 'none'])).toBe(0);
+    expect(allianceMatchScore(140, ['none', 'none', 'red'])).toBe(0);
+  });
+
+  it('жёлтая карточка альянс не обнуляет', () => {
+    expect(allianceMatchScore(140, ['yellow', 'yellow', 'yellow'])).toBe(140);
+  });
+
+  it('белая карточка альянс не обнуляет', () => {
+    // Мануал задаёт последствие белой карточки только для квалификации
+    // («In RANKING MATCHES … the team receives 0 points»), про плей-офф
+    // не говорит ничего. Читаем буквально: обнуляет альянс только красная.
+    expect(allianceMatchScore(140, ['white', 'none', 'none'])).toBe(140);
   });
 });

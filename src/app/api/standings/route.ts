@@ -6,7 +6,7 @@ import { getAlliances } from '@/lib/db/alliances';
 import { standingsFromRows, matchRowToInput } from '@/lib/standings';
 import { computeMatchScores } from '@/lib/scoring/match';
 import type { MatchScores } from '@/lib/scoring/types';
-import { computeAllianceStandings } from '@/lib/alliances/playoff';
+import { allianceMatchScore, computeAllianceStandings } from '@/lib/alliances/playoff';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,8 +73,20 @@ export async function GET() {
       const s = scoresById.get(r.id)!;
       const redSeed = r.red_alliance_id !== null ? allianceSeedById.get(r.red_alliance_id) : undefined;
       const blueSeed = r.blue_alliance_id !== null ? allianceSeedById.get(r.blue_alliance_id) : undefined;
-      if (redSeed !== undefined) scoresBySeed.push({ seed: redSeed, score: s.red });
-      if (blueSeed !== undefined) scoresBySeed.push({ seed: blueSeed, score: s.blue });
+      // A red card in the playoff zeroes the whole alliance for the match —
+      // the cards have to be applied here, not just in the team standings.
+      if (redSeed !== undefined) {
+        scoresBySeed.push({
+          seed: redSeed,
+          score: allianceMatchScore(s.red, [r.card_red1, r.card_red2, r.card_red3]),
+        });
+      }
+      if (blueSeed !== undefined) {
+        scoresBySeed.push({
+          seed: blueSeed,
+          score: allianceMatchScore(s.blue, [r.card_blue1, r.card_blue2, r.card_blue3]),
+        });
+      }
     }
     allianceStandings = computeAllianceStandings(scoresBySeed).map((a) => {
       const alliance = alliances.find((x) => x.seed === a.seed)!;

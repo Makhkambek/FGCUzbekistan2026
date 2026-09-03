@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateSchedule } from '@/lib/schedule/generate';
+import { generateSchedule, scheduleShape, evenMatchesPerTeam } from '@/lib/schedule/generate';
 
 const teams = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -89,5 +89,21 @@ describe('generateSchedule — недобор матчей', () => {
     const ids = Array.from({ length: 9 }, (_, i) => i + 1);
     const counts = countPerTeam(ids, 5, 7);
     expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('scheduleShape — что реально получит оператор', () => {
+  it('считает, сколько команд сыграет на матч больше', () => {
+    // 13 команд по 8 матчей = 104 места, это 18 матчей (108 мест):
+    // четырём командам достаётся девятая игра.
+    expect(scheduleShape(13, 8)).toEqual({ totalMatches: 18, base: 8, withExtra: 4 });
+    // 12 × 8 = 96 = ровно 16 матчей, всем поровну.
+    expect(scheduleShape(12, 8)).toEqual({ totalMatches: 16, base: 8, withExtra: 0 });
+  });
+
+  it('подсказывает ближайшее число матчей, которое делится ровно', () => {
+    expect(evenMatchesPerTeam(13, 8)).toBe(6);  // ближайшее к 8, а не 12
+    expect(evenMatchesPerTeam(10, 8)).toBe(9);
+    expect(evenMatchesPerTeam(12, 8)).toBeNull(); // уже ровно
   });
 });

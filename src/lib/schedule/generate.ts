@@ -15,6 +15,43 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
+/**
+ * What the operator actually gets for a team count and a matches-per-team.
+ *
+ * Six teams play each match, so unless `teams × matchesPerTeam` divides by 6
+ * the schedule cannot give everyone the same number of matches: `withExtra`
+ * teams play one more than the rest. The ranking averages and drops each
+ * team's worst match, so an extra match does not inflate the ranking score
+ * itself — but it is one more chance at the best-single-match tiebreaker and
+ * one more match in the suppression total, so the operator should know.
+ */
+export function scheduleShape(teams: number, matchesPerTeam: number) {
+  const totalMatches = Math.ceil((teams * matchesPerTeam) / 6);
+  const slots = totalMatches * 6;
+  return {
+    totalMatches,
+    base: Math.floor(slots / teams),
+    withExtra: slots % teams,
+  };
+}
+
+/**
+ * The nearest matches-per-team that comes out even for this team count, or
+ * null when the requested number already does.
+ */
+export function evenMatchesPerTeam(teams: number, matchesPerTeam: number): number | null {
+  if ((teams * matchesPerTeam) % 6 === 0) return null;
+  for (let delta = 1; delta <= 20; delta++) {
+    if (matchesPerTeam - delta >= 1 && (teams * (matchesPerTeam - delta)) % 6 === 0) {
+      return matchesPerTeam - delta;
+    }
+    if (matchesPerTeam + delta <= 20 && (teams * (matchesPerTeam + delta)) % 6 === 0) {
+      return matchesPerTeam + delta;
+    }
+  }
+  return null;
+}
+
 export function generateSchedule(
   teamIds: number[], matchesPerTeam: number, seed: number,
 ): ScheduledMatch[] {

@@ -1,11 +1,17 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { scheduleShape, evenMatchesPerTeam } from '@/lib/schedule/generate';
 
-export default function SchedulePanel({ matchCount }: { matchCount: number }) {
+export default function SchedulePanel({ matchCount, teamCount }: { matchCount: number; teamCount: number }) {
   const hasSchedule = matchCount > 0;
   const router = useRouter();
   const [matchesPerTeam, setMatchesPerTeam] = useState(5);
+  // Six teams play a match, so unless teams × matchesPerTeam divides by 6 the
+  // schedule cannot be equal for everyone. Say so before the button is
+  // pressed rather than leaving it to be noticed in the standings.
+  const shape = teamCount >= 6 ? scheduleShape(teamCount, matchesPerTeam) : null;
+  const evenAlternative = teamCount >= 6 ? evenMatchesPerTeam(teamCount, matchesPerTeam) : null;
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -72,6 +78,22 @@ export default function SchedulePanel({ matchCount }: { matchCount: number }) {
           {resetting ? 'Resetting…' : 'Reset'}
         </button>
       </div>
+      {shape && !hasSchedule && (
+        shape.withExtra === 0
+          ? (
+            <p className="text-sm text-gray-600">
+              {shape.totalMatches} matches — every team plays {shape.base}.
+            </p>
+          ) : (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              {shape.totalMatches} matches — {shape.withExtra} team{shape.withExtra === 1 ? '' : 's'} would
+              play {shape.base + 1} and the other {teamCount - shape.withExtra} would play {shape.base}.
+              Rankings are averages with each team&apos;s worst match dropped, so an extra match does not
+              inflate the ranking score, but it is one more shot at the best-match tiebreaker.
+              {evenAlternative !== null && ` For an equal schedule use ${evenAlternative} matches per team.`}
+            </p>
+          )
+      )}
       {message && <p className="text-sm text-gray-700">{message}</p>}
       <p className="text-xs text-gray-500">
         The schedule can only be regenerated while no match has been played. Reset deletes all

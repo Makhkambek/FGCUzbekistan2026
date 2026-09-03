@@ -142,3 +142,20 @@ describe('sortStandings', () => {
     expect(r.map((x) => x.teamId)).toEqual([2, 1, 3, 4]);
   });
 });
+
+describe('computeTeamStanding — одинаково худшие матчи', () => {
+  // Мануал говорит только «single lowest-scoring MATCH» и не разрешает ничью
+  // между двумя одинаково худшими. Раньше выбрасывался тот, что шёл раньше
+  // в массиве, то есть результат зависел от порядка строк из базы — а вместе
+  // с ним и второй тайбрейк (сумма suppression без выброшенного матча).
+  const r = (matchId: number, score: number, suppression: number) =>
+    ({ matchId, score, suppression, redCard: false });
+
+  it('при равных худших выбрасывает матч с меньшим id, а не первый в списке', () => {
+    const forward = computeTeamStanding(1, [r(10, 50, 5), r(20, 50, 9), r(30, 90, 4)]);
+    const reversed = computeTeamStanding(1, [r(30, 90, 4), r(20, 50, 9), r(10, 50, 5)]);
+    expect(forward.droppedMatchId).toBe(10);
+    expect(reversed.droppedMatchId).toBe(10);
+    expect(forward.suppressionTotal).toBe(reversed.suppressionTotal);
+  });
+});

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { findUserByUsername } from '@/lib/db/users';
 import { verifyPassword } from '@/lib/auth/password';
-import { signSession, SESSION_COOKIE } from '@/lib/auth/session';
+import { signSession, SESSION_COOKIE, DEFAULT_TTL_HOURS } from '@/lib/auth/session';
 import { checkRateLimit, recordFailure, resetRateLimit } from '@/lib/auth/rate-limit';
 
 const schema = z.object({ username: z.string().min(1).max(64), password: z.string().min(1).max(200) });
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true });
   res.cookies.set(SESSION_COOKIE, signSession(user.username), {
     httpOnly: true, sameSite: 'strict', path: '/',
-    secure: isHttps(req), maxAge: 12 * 60 * 60,
+    secure: isHttps(req), maxAge: DEFAULT_TTL_HOURS * 60 * 60,
   });
   return res;
 }

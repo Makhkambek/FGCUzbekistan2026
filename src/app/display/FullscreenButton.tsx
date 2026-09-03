@@ -21,10 +21,14 @@ export default function FullscreenButton() {
     show();
     const onChange = () => setIsFullscreen(!!document.fullscreenElement);
     window.addEventListener('mousemove', show);
+    // A touch panel has no mousemove, so without this the button hid itself
+    // after three seconds and could never be brought back.
+    window.addEventListener('touchstart', show);
     document.addEventListener('fullscreenchange', onChange);
     return () => {
       clearTimeout(hideTimer);
       window.removeEventListener('mousemove', show);
+      window.removeEventListener('touchstart', show);
       document.removeEventListener('fullscreenchange', onChange);
     };
   }, []);

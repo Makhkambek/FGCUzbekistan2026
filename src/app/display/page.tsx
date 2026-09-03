@@ -60,11 +60,14 @@ function matchLabel(phase: 'qualification' | 'playoff', number: number) {
 }
 
 function useClock() {
+  // Starts null and is filled by the effect: rendering the clock on the server
+  // and again on the client would mismatch, and reading it during render is
+  // not pure.
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
-    setNow(new Date());
+    const t0 = setTimeout(() => setNow(new Date()), 0);
     const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
+    return () => { clearTimeout(t0); clearInterval(t); };
   }, []);
   return now;
 }
@@ -94,9 +97,12 @@ export default function DisplayPage() {
     lastStandingsAt.current = Date.now();
     let requestId = 0;
     let latest = 0;
+    let controller: AbortController | null = null;
     const load = () => {
       const id = ++requestId;
-      fetch('/api/display/state', { cache: 'no-store' })
+      controller?.abort();
+      controller = new AbortController();
+      fetch('/api/display/state', { cache: 'no-store', signal: controller.signal })
         .then((r) => {
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           return r.json();
@@ -117,7 +123,7 @@ export default function DisplayPage() {
       const oldest = Math.min(lastSuccessAt.current, lastStandingsAt.current);
       setStale(Date.now() - oldest > cutoff);
     }, 2_000);
-    return () => { clearInterval(timer); clearInterval(staleTimer); };
+    return () => { clearInterval(timer); clearInterval(staleTimer); controller?.abort(); };
   }, []);
 
   // Only needed for the dark broadcast canvas (ticker + playoff table) — the
@@ -125,8 +131,11 @@ export default function DisplayPage() {
   // StandingsTable, which already fetches its own data.
   useEffect(() => {
     let cancelled = false;
+    let controller: AbortController | null = null;
     const load = () => {
-      fetch('/api/standings', { cache: 'no-store' })
+      controller?.abort();
+      controller = new AbortController();
+      fetch('/api/standings', { cache: 'no-store', signal: controller.signal })
         .then((r) => {
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           return r.json();
@@ -141,7 +150,7 @@ export default function DisplayPage() {
     };
     load();
     const timer = setInterval(load, POLL_MS);
-    return () => { cancelled = true; clearInterval(timer); };
+    return () => { cancelled = true; clearInterval(timer); controller?.abort(); };
   }, []);
 
   // The draft being finished is not the same thing as the playoff having
@@ -362,7 +371,9 @@ const BREAKDOWN_ROWS: { key: keyof AllianceBreakdown | 'extinguisher' | 'coopert
   { key: 'partnerClimbPoints', label: 'Partner climbs', swatch: 'oklch(0.65 0.15 230)' },
   { key: 'extinguisher', label: 'Extinguisher', swatch: 'oklch(0.62 0.13 160)', shared: true },
   { key: 'coopertition', label: 'Coopertition bonus', swatch: 'oklch(0.62 0.13 160)', shared: true },
-  { key: 'penalty', label: 'Penalty', swatch: 'oklch(0.6 0.2 25)' },
+  // These are the points this alliance GAINED from the opponent's fouls —
+  // labelled "Penalty" it read on the projector as a deduction against them.
+  { key: 'penalty', label: 'Opponent fouls', swatch: 'oklch(0.6 0.2 25)' },
 ];
 
 function AlliancePanel({ color, data, isWinner, shared }: {

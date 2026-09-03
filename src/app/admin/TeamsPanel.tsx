@@ -11,6 +11,8 @@ export default function TeamsPanel({ teams }: { teams: TeamRow[] }) {
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
+  const [deleteAllError, setDeleteAllError] = useState('');
+  const [rowBusy, setRowBusy] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [editId, setEditId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
@@ -39,6 +41,10 @@ export default function TeamsPanel({ teams }: { teams: TeamRow[] }) {
   }
 
   function startEdit(t: TeamRow) {
+    // Switching rows mid-edit used to drop whatever had been typed without a
+    // word.
+    if (editId !== null && editId !== t.id
+      && !window.confirm('Discard the unsaved changes to the other team?')) return;
     setEditId(t.id);
     setEditName(t.name);
     setEditRegion(t.region ?? '');
@@ -47,41 +53,53 @@ export default function TeamsPanel({ teams }: { teams: TeamRow[] }) {
 
   async function saveEdit(id: number) {
     if (!editName.trim()) return;
-    const res = await fetch(`/api/admin/teams?id=${id}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: editName, region: editRegion || undefined }),
-    });
-    if (res.ok) {
-      setEditId(null);
-      router.refresh();
-    } else {
-      const data = await res.json().catch(() => ({}));
-      setRowError({ id, message: data.error ?? 'Something went wrong' });
+    // Without a busy flag the row's Save and Delete stayed live during the
+    // request, so an impatient second click sent the same change twice.
+    setRowBusy(id);
+    try {
+      const res = await fetch(`/api/admin/teams?id=${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editName, region: editRegion || undefined }),
+      });
+      if (res.ok) {
+        setEditId(null);
+        router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setRowError({ id, message: data.error ?? 'Something went wrong' });
+      }
+    } finally {
+      setRowBusy(null);
     }
   }
 
   async function remove(id: number) {
     if (!window.confirm('Delete this team?')) return;
     setRowError(null);
-    const res = await fetch(`/api/admin/teams?id=${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setRowError({ id, message: data.error ?? 'Something went wrong' });
-      return;
+    setRowBusy(id);
+    try {
+      const res = await fetch(`/api/admin/teams?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setRowError({ id, message: data.error ?? 'Something went wrong' });
+        return;
+      }
+      router.refresh();
+    } finally {
+      setRowBusy(null);
     }
-    router.refresh();
   }
 
   async function removeAll() {
     if (!window.confirm(`Delete all ${teams.length} teams? This cannot be undone.`)) return;
     if (!window.confirm('Are you absolutely sure?')) return;
-    setAddError('');
+    setDeleteAllError('');
     setDeletingAll(true);
     try {
       const res = await fetch('/api/admin/teams?all=true', { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setAddError(data.error ?? 'Something went wrong');
+        setDeleteAllError(data.error ?? 'Something went wrong');
       }
       router.refresh();
     } finally {
@@ -100,10 +118,17 @@ export default function TeamsPanel({ teams }: { teams: TeamRow[] }) {
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900">Teams ({teams.length})</h2>
           {teams.length > 0 && (
-            <button onClick={removeAll} disabled={deletingAll}
-              className="px-3 py-1.5 rounded-md text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50">
-              {deletingAll ? 'Deleting…' : `Delete all (${teams.length})`}
-            </button>
+            <div className="flex items-center gap-2">
+              {deleteAllError && (
+                <span className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1" role="alert">
+                  {deleteAllError}
+                </span>
+              )}
+              <button onClick={removeAll} disabled={deletingAll}
+                className="px-3 py-1.5 rounded-md text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50">
+                {deletingAll ? 'Deleting…' : `Delete all (${teams.length})`}
+              </button>
+            </div>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -163,13 +188,19 @@ export default function TeamsPanel({ teams }: { teams: TeamRow[] }) {
                       <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-right whitespace-nowrap">
                         {editId === t.id ? (
                           <>
-                            <button onClick={() => saveEdit(t.id)} className="text-xs font-bold text-amber-600 hover:text-amber-700">Save</button>
+                            <button onClick={() => saveEdit(t.id)} disabled={rowBusy === t.id}
+                              className="text-xs font-bold text-amber-600 hover:text-amber-700 disabled:opacity-50">
+                              {rowBusy === t.id ? 'Saving…' : 'Save'}
+                            </button>
                             <button onClick={() => setEditId(null)} className="text-xs text-gray-400 hover:text-gray-700 ml-3">Cancel</button>
                           </>
                         ) : (
                           <>
                             <button onClick={() => startEdit(t)} className="text-xs text-gray-500 hover:text-gray-900">Edit</button>
-                            <button onClick={() => remove(t.id)} className="text-xs text-red-500 hover:text-red-700 ml-3">Delete</button>
+                            <button onClick={() => remove(t.id)} disabled={rowBusy === t.id}
+                              className="text-xs text-red-500 hover:text-red-700 ml-3 disabled:opacity-50">
+                              {rowBusy === t.id ? 'Deleting…' : 'Delete'}
+                            </button>
                           </>
                         )}
                         {rowError?.id === t.id && <p className="text-xs text-red-600 mt-1">{rowError.message}</p>}

@@ -1,7 +1,13 @@
 import crypto from 'node:crypto';
 
 export { SESSION_COOKIE } from './constants';
-const DEFAULT_TTL_MS = 12 * 60 * 60 * 1000;
+// A tournament day runs longer than twelve hours once setup and teardown are
+// counted, and a session that expires mid-match shows the referee a bare 401
+// inside the score form. Eighteen hours covers a day that starts at 07:00 and
+// still ends the session overnight.
+const DEFAULT_TTL_HOURS = 18;
+const DEFAULT_TTL_MS = DEFAULT_TTL_HOURS * 60 * 60 * 1000;
+export { DEFAULT_TTL_HOURS };
 
 function secret(): string {
   const s = process.env.SESSION_SECRET;

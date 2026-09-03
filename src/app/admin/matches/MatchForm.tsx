@@ -57,13 +57,17 @@ export default function MatchForm({ match, teamNames }: {
   const [starting, setStarting] = useState(false);
   const [startStatus, setStartStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [startError, setStartError] = useState('');
+  const [clampNote, setClampNote] = useState('');
 
   // Any edit after a save invalidates that save's confirmation — a stale
   // "✓ Saved" next to a value the judge just changed would tell them
   // an unsent correction is already safe, which is worse than no indicator.
+  // The clamp note belongs to the value on screen — a new edit invalidates it
+  // the same way it invalidates the "Saved" tick.
   function markDirty() {
     setSaveStatus('idle');
     setSaveError('');
+    setClampNote('');
   }
 
   const preview = computeMatchScores({
@@ -175,6 +179,13 @@ export default function MatchForm({ match, teamNames }: {
 
   const num = (v: number, set: (n: number) => void, max = MAX_WILDFIRE) => (
     <input type="number" min={0} max={max} value={v}
+      // Out-of-range input is clamped silently, so say what happened rather
+      // than letting the referee believe the number they typed went in.
+      onBlur={(e) => {
+        const typed = Math.trunc(Number(e.target.value));
+        setClampNote(Number.isFinite(typed) && typed > max
+          ? `${typed} is above the maximum of ${max} — saved as ${max}` : '');
+      }}
       // A focused number input takes the scroll wheel as a value change, so
       // scrolling down to the Save button silently edits the field the
       // referee just typed into.
@@ -244,7 +255,7 @@ export default function MatchForm({ match, teamNames }: {
         <button onClick={startMatch} disabled={starting}
           className={`px-3 py-1 rounded-md text-white text-sm font-semibold disabled:opacity-50 transition-colors ${
             startStatus === 'ok'
-              ? 'ml-0 bg-green-600 hover:bg-green-700'
+              ? 'ml-auto bg-green-600 hover:bg-green-700'
               : 'ml-auto bg-blue-600 hover:bg-blue-700'
           }`}>
           {starting ? 'Starting…' : 'Start match'}
@@ -256,12 +267,12 @@ export default function MatchForm({ match, teamNames }: {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {side('red', [match.red1_id, match.red2_id, match.red3_id], climbRed, setClimbRed, cardRed, setCardRed)}
         {side('blue', [match.blue1_id, match.blue2_id, match.blue3_id], climbBlue, setClimbBlue, cardBlue, setCardBlue)}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
         <label className="flex justify-between items-center">Red suppression {num(suppressionRed, setSuppressionRed)}</label>
         <label className="flex justify-between items-center">Blue suppression {num(suppressionBlue, setSuppressionBlue)}</label>
         <label className="flex justify-between items-center">Red partner climbs {num(partnerRed, setPartnerRed, MAX_PARTNER_CLIMB)}</label>
@@ -286,6 +297,11 @@ export default function MatchForm({ match, teamNames }: {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          {clampNote && (
+            <span className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+              {clampNote}
+            </span>
+          )}
           {saveStatus === 'ok' && (
             <span className="text-sm text-green-600">✓ Saved</span>
           )}

@@ -26,7 +26,12 @@ export function computeTeamStanding(teamId: number, results: TeamMatchResult[]):
   if (results.length >= 2) {
     const droppable = results.filter((r) => !r.redCard);
     if (droppable.length > 0) {
-      const worst = droppable.reduce((a, b) => (b.score < a.score ? b : a));
+      // Ties broken by match id, so which of two equally-bad matches is
+      // dropped does not depend on the order the rows came back in — that
+      // order also moved the second tiebreaker (suppression without the
+      // dropped match) around.
+      const worst = droppable.reduce((a, b) =>
+        (b.score < a.score || (b.score === a.score && b.matchId < a.matchId) ? b : a));
       droppedMatchId = worst.matchId;
     }
   }

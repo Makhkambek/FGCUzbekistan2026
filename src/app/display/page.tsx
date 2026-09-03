@@ -47,6 +47,17 @@ function useCanvasScale() {
   return scale;
 }
 
+/**
+ * White text on the event gradient loses contrast wherever the gradient goes
+ * pale — the event name top right and the ticker bottom left were washing
+ * out on the projector. Everything set over the gradient sits on this plate.
+ */
+const OVER_GRADIENT: React.CSSProperties = {
+  background: 'oklch(0.18 0.03 300 / 0.42)',
+  borderRadius: 12,
+  padding: '10px 18px',
+};
+
 function matchLabel(phase: 'qualification' | 'playoff', number: number) {
   return `${phase === 'playoff' ? 'P' : 'Q'}${number}`;
 }
@@ -177,7 +188,7 @@ export default function DisplayPage() {
               Qualification
             </div>
           </div>
-          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3, color: 'oklch(1 0 0)' }}>
+          <div style={{ ...OVER_GRADIENT, textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3, color: 'oklch(1 0 0)' }}>
             <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 30, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
               FGC Uzbekistan 2026
             </div>
@@ -288,8 +299,9 @@ export default function DisplayPage() {
 function Ticker({ label, clock }: { label: string | null; clock: Date | null }) {
   return (
     <div style={{
+      ...OVER_GRADIENT,
       position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      gap: 40, marginTop: 22, paddingTop: 18, borderTop: '1px solid oklch(1 0 0 / 0.4)',
+      gap: 40, marginTop: 20, padding: '12px 22px',
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, minWidth: 0 }}>
         <div style={{ fontFamily: F_MONO, fontSize: 19, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.85)', whiteSpace: 'nowrap' }}>
@@ -337,7 +349,7 @@ function MatchScreen({ data, nextMatchLabel, clock }: {
           <Badge label="Match" value={matchLabel(data.matchPhase, data.matchNumber)} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 30 }}>
-          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ ...OVER_GRADIENT, textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 34, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
               FGC Uzbekistan 2026
             </div>
@@ -510,7 +522,7 @@ function PlayoffScreen({ standings, nextMatchLabel, clock }: {
         </div>
 
         <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', alignItems: 'center', gap: 24 }}>
-          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ ...OVER_GRADIENT, textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 30, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
               FGC Uzbekistan 2026
             </div>
@@ -603,7 +615,7 @@ function PlayoffScreen({ standings, nextMatchLabel, clock }: {
         </div>
       </div>
 
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 40, marginTop: 22, paddingTop: 18, borderTop: '1px solid oklch(1 0 0 / 0.4)' }}>
+      <div style={{ ...OVER_GRADIENT, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 40, marginTop: 20, padding: '12px 22px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, minWidth: 0 }}>
           <div style={{ fontFamily: F_MONO, fontSize: 19, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.88)', whiteSpace: 'nowrap' }}>
             Next up

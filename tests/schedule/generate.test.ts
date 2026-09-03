@@ -5,7 +5,7 @@ const teams = Array.from({ length: 12 }, (_, i) => i + 1);
 
 describe('generateSchedule', () => {
   it('требует минимум шесть команд', () => {
-    expect(() => generateSchedule([1, 2, 3, 4, 5], 3, 42)).toThrow(/минимум 6/i);
+    expect(() => generateSchedule([1, 2, 3, 4, 5], 3, 42)).toThrow(/at least 6 teams/i);
   });
 
   it('в каждом альянсе ровно три команды', () => {

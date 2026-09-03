@@ -12,7 +12,7 @@ export interface AllianceScore {
   matchesPlayed: number;
 }
 
-/** Round-robin трёх альянсов — Table 6-3 мануала. */
+/** Round robin between the three alliances — Table 6-3 of the manual. */
 export const PLAYOFF_PAIRINGS: PlayoffPairing[] = [
   { matchNumber: 1, redSeed: 1, blueSeed: 3 },
   { matchNumber: 2, redSeed: 3, blueSeed: 2 },
@@ -20,7 +20,10 @@ export const PLAYOFF_PAIRINGS: PlayoffPairing[] = [
 ];
 
 export function allianceTeams(slot: AllianceSlot): number[] {
-  return [slot.captain, ...slot.picks];
+  if (slot.picks.some((p) => p === null)) {
+    throw new Error(`Alliance ${slot.seed} is not complete yet`);
+  }
+  return [slot.captain, ...(slot.picks as [number, number])];
 }
 
 export function computeAllianceStandings(

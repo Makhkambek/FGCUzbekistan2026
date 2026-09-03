@@ -1,25 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionApi } from '@/lib/auth/require-session';
 import { listTeams } from '@/lib/db/teams';
-import { insertMatches, listMatches } from '@/lib/db/matches';
+import { insertMatches, listMatches, deleteMatchesByPhase } from '@/lib/db/matches';
+import { getAlliances } from '@/lib/db/alliances';
 import { generateSchedule } from '@/lib/schedule/generate';
 import { scheduleParamsSchema } from '@/lib/validation';
 
 export async function POST(req: NextRequest) {
-  if (!await requireSessionApi()) return NextResponse.json({ error: 'Нет доступа' }, { status: 401 });
+  if (!await requireSessionApi()) return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
 
   const parsed = scheduleParamsSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: 'Некорректные параметры' }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
 
   const existing = await listMatches('qualification');
   if (existing.some((m) => m.played)) {
     return NextResponse.json(
-      { error: 'Есть сыгранные матчи — расписание пересоздать нельзя' }, { status: 409 });
+      { error: 'Some matches have been played — the schedule cannot be regenerated' }, { status: 409 });
   }
 
   const teams = await listTeams();
   if (teams.length < 6) {
-    return NextResponse.json({ error: 'Нужно минимум 6 команд' }, { status: 400 });
+    return NextResponse.json({ error: 'At least 6 teams are required' }, { status: 400 });
   }
 
   const schedule = generateSchedule(
@@ -35,4 +36,20 @@ export async function POST(req: NextRequest) {
   })), { clearPhase: 'qualification' });
 
   return NextResponse.json({ ok: true, matches: schedule.length });
+}
+
+export async function DELETE() {
+  if (!await requireSessionApi()) return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
+
+  // Alliance picks and the playoff bracket are both derived from the
+  // qualification standings — wiping qualification matches out from under
+  // them would leave a bracket that no longer matches any real ranking.
+  const [alliances, playoffMatches] = await Promise.all([getAlliances(), listMatches('playoff')]);
+  if (alliances.length > 0 || playoffMatches.length > 0) {
+    return NextResponse.json(
+      { error: 'Alliances or playoff matches already exist — reset those first' }, { status: 409 });
+  }
+
+  await deleteMatchesByPhase('qualification');
+  return NextResponse.json({ ok: true });
 }

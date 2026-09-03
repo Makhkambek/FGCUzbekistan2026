@@ -35,19 +35,19 @@ export async function POST(req: NextRequest) {
   const limit = checkRateLimit(key);
   if (!limit.allowed) {
     return NextResponse.json(
-      { error: 'Слишком много попыток. Попробуйте позже.' }, { status: 429 });
+      { error: 'Too many attempts. Try again later.' }, { status: 429 });
   }
 
   if (!parsed.success) {
     recordFailure(key);
-    return NextResponse.json({ error: 'Неверный логин или пароль' }, { status: 401 });
+    return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
   }
 
   const user = await findUserByUsername(parsed.data.username);
   const ok = await verifyPassword(parsed.data.password, user ? user.password_hash : DUMMY_PASSWORD_HASH);
   if (!user || !ok) {
     recordFailure(key);
-    return NextResponse.json({ error: 'Неверный логин или пароль' }, { status: 401 });
+    return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
   }
 
   resetRateLimit(key);

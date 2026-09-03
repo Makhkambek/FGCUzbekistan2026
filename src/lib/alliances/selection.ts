@@ -1,81 +1,103 @@
+export type PickSlot = number | null;
+
 export interface AllianceSlot {
   seed: number;
   captain: number;
-  picks: number[];
+  picks: [PickSlot, PickSlot];
 }
 
 export type SelectionState = AllianceSlot[];
 
-/** Порядок выбора «змейкой»: 1→2→3, затем 3→2→1. */
-export const PICK_ORDER: number[] = [0, 1, 2, 2, 1, 0];
-
 export function initialSelection(rankedTeamIds: number[]): SelectionState {
   if (rankedTeamIds.length < 9) {
-    throw new Error('Для трёх альянсов по три команды нужно минимум 9 команд');
+    throw new Error('Three alliances of three teams need at least 9 teams');
   }
-  return rankedTeamIds.slice(0, 3).map((captain, i) => ({ seed: i + 1, captain, picks: [] }));
+  return rankedTeamIds.slice(0, 3).map((captain, i) => ({ seed: i + 1, captain, picks: [null, null] }));
 }
 
 function assignedTeams(state: SelectionState): Set<number> {
   const taken = new Set<number>();
   for (const a of state) {
     taken.add(a.captain);
-    for (const p of a.picks) taken.add(p);
+    for (const p of a.picks) if (p !== null) taken.add(p);
   }
   return taken;
 }
 
-export function nextPicker(state: SelectionState): number | null {
-  const made = state.reduce((acc, a) => acc + a.picks.length, 0);
-  return made < PICK_ORDER.length ? PICK_ORDER[made] : null;
-}
-
 /**
- * True if `teamId` may legally be picked next by the alliance at
- * `pickerIndex` (0-based, same indexing as `nextPicker`'s return value).
+ * True if `teamId` may be placed into `allianceSeed`'s picks right now: not
+ * already assigned anywhere (as a captain or a pick), UNLESS it is the
+ * captain of a LOWER-seeded alliance (a strictly higher seed number) — that
+ * remains a legal poach, reported separately by `isPoach`.
  *
- * This mirrors — rather than reimplements — the exact acceptance rule
- * enforced inside `applyPick`: a team is pickable if it is not already taken
- * (captain or pick of any alliance), UNLESS it is the captain of a
- * LOWER-ranked alliance, which is always pickable (that captain moves up and
- * their vacated captaincy passes to the next free team by ranking).
+ * There is no turn order any more: any alliance may be filled in any order,
+ * and any of its two pick slots may be set independently of the other.
  */
-export function isPickable(state: SelectionState, pickerIndex: number, teamId: number): boolean {
+export function isPickable(state: SelectionState, allianceSeed: number, teamId: number): boolean {
   const taken = assignedTeams(state);
-  const captainOfSeedIndex = state.findIndex((a) => a.captain === teamId);
-  const isLowerCaptain = captainOfSeedIndex > pickerIndex;
+  const captainAlliance = state.find((a) => a.captain === teamId);
+  const isLowerCaptain = captainAlliance !== undefined && captainAlliance.seed > allianceSeed;
   return !taken.has(teamId) || isLowerCaptain;
 }
 
-export function applyPick(
-  state: SelectionState, rankedTeamIds: number[], pickedTeamId: number,
+/** True if picking `teamId` into `allianceSeed` would poach a captain — the caller must get operator confirmation before calling `setPick` for this pair. */
+export function isPoach(state: SelectionState, allianceSeed: number, teamId: number): boolean {
+  const captainAlliance = state.find((a) => a.captain === teamId);
+  return captainAlliance !== undefined && captainAlliance.seed > allianceSeed;
+}
+
+/**
+ * Sets one pick slot of one alliance to `teamId`, in any order relative to
+ * every other slot — including re-setting an already-filled slot to a
+ * different team, or back to what it already held (a no-op in that case).
+ *
+ * Poaching a lower-seeded alliance's captain promotes the next available
+ * team by ranking into the vacated captaincy, same rule as before — the
+ * caller (the route) is expected to have already gotten operator
+ * confirmation via `isPoach` before calling this for a poaching pick.
+ */
+export function setPick(
+  state: SelectionState, rankedTeamIds: number[],
+  allianceSeed: number, slotIndex: 0 | 1, teamId: number,
 ): SelectionState {
-  const pickerIndex = nextPicker(state);
-  if (pickerIndex === null) throw new Error('Выбор альянсов уже завершён');
+  const alliance = state.find((a) => a.seed === allianceSeed);
+  if (!alliance) throw new Error('No such alliance');
+  if (!rankedTeamIds.includes(teamId)) throw new Error('Team is not in the ranking');
+  if (teamId === alliance.captain) throw new Error('This team is already the captain of this alliance');
 
-  if (!rankedTeamIds.includes(pickedTeamId)) {
-    throw new Error('Команда не найдена в рейтинге');
+  // Check availability as if this slot were empty first, so re-selecting
+  // whatever already sits there — or swapping it for a different team — is
+  // never blocked by that slot's own current occupant.
+  const asIfEmpty = clearPick(state, allianceSeed, slotIndex);
+  if (!isPickable(asIfEmpty, allianceSeed, teamId)) {
+    throw new Error('This team is already in an alliance');
   }
+  const poach = isPoach(asIfEmpty, allianceSeed, teamId);
 
-  const taken = assignedTeams(state);
-  const pickedIsCaptainOf = state.findIndex((a) => a.captain === pickedTeamId);
+  const next: SelectionState = asIfEmpty.map((a) => ({ ...a, picks: [...a.picks] as [PickSlot, PickSlot] }));
+  next.find((a) => a.seed === allianceSeed)!.picks[slotIndex] = teamId;
 
-  // Занятую команду выбрать нельзя. Исключение — капитан НИЖЕСТОЯЩЕГО альянса:
-  // он уходит к вышестоящему, а его капитанство переходит вниз по рейтингу.
-  const isLowerCaptain = pickedIsCaptainOf > pickerIndex;
-  if (taken.has(pickedTeamId) && !isLowerCaptain) {
-    throw new Error('Эта команда уже в альянсе');
-  }
-
-  const next: SelectionState = state.map((a) => ({ ...a, picks: [...a.picks] }));
-  next[pickerIndex].picks.push(pickedTeamId);
-
-  if (isLowerCaptain) {
+  if (poach) {
+    const poachedAlliance = next.find((a) => a.captain === teamId)!;
     const busy = assignedTeams(next);
     const promoted = rankedTeamIds.find((id) => !busy.has(id));
-    if (promoted === undefined) throw new Error('Нет свободных команд для нового капитана');
-    next[pickedIsCaptainOf].captain = promoted;
+    if (promoted === undefined) throw new Error('No available team is left to take over the captaincy');
+    poachedAlliance.captain = promoted;
   }
 
+  return next;
+}
+
+/**
+ * Empties one pick slot. Does NOT undo a captaincy promotion that happened
+ * because that slot held a poached captain — reversing a poach is a
+ * separate, deliberate action the operator has to do by hand (or by using
+ * the full "Reset alliance selection").
+ */
+export function clearPick(state: SelectionState, allianceSeed: number, slotIndex: 0 | 1): SelectionState {
+  const alliance = state.find((a) => a.seed === allianceSeed);
+  if (!alliance) throw new Error('No such alliance');
+  const next: SelectionState = state.map((a) => ({ ...a, picks: [...a.picks] as [PickSlot, PickSlot] }));
+  next.find((a) => a.seed === allianceSeed)!.picks[slotIndex] = null;
   return next;
 }

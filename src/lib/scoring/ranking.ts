@@ -21,7 +21,7 @@ export function computeTeamStanding(teamId: number, results: TeamMatchResult[]):
     return { teamId, rankingScore: 0, played: 0, best: 0, suppressionTotal: 0, droppedMatchId: null, sum: 0, keptCount: 0 };
   }
 
-  // Выкидываем один худший матч, но матч с красной карточкой выкинуть нельзя (M21).
+  // Drop the single worst match, except a match with a red card cannot be dropped (M21).
   let droppedMatchId: number | null = null;
   if (results.length >= 2) {
     const droppable = results.filter((r) => !r.redCard);

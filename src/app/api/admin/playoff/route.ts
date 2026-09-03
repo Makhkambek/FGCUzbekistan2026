@@ -5,14 +5,14 @@ import { insertMatches, listMatches } from '@/lib/db/matches';
 import { PLAYOFF_PAIRINGS } from '@/lib/alliances/playoff';
 
 export async function GET() {
-  if (!await requireSessionApi()) return NextResponse.json({ error: 'Нет доступа' }, { status: 401 });
+  if (!await requireSessionApi()) return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
 
   const matches = await listMatches('playoff');
   return NextResponse.json({ matches: matches.length, played: matches.filter((m) => m.played).length });
 }
 
 export async function POST() {
-  if (!await requireSessionApi()) return NextResponse.json({ error: 'Нет доступа' }, { status: 401 });
+  if (!await requireSessionApi()) return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
 
   // Same guard shape as /api/admin/schedule: once a match has a real result,
   // regenerating the phase would silently erase it with no way back. This
@@ -21,20 +21,20 @@ export async function POST() {
   const existingPlayoff = await listMatches('playoff');
   if (existingPlayoff.some((m) => m.played)) {
     return NextResponse.json(
-      { error: 'Есть сыгранные матчи плей-офф — пересоздать сетку нельзя' }, { status: 409 });
+      { error: 'Some playoff matches have been played — the bracket cannot be rebuilt' }, { status: 409 });
   }
 
   const alliances = await getAlliances();
   if (alliances.length !== 3 || alliances.some((a) => !a.pick1_team_id || !a.pick2_team_id)) {
     return NextResponse.json(
-      { error: 'Сначала нужно полностью укомплектовать три альянса' }, { status: 400 });
+      { error: 'All three alliances must be complete first' }, { status: 400 });
   }
 
   const bySeed = new Map(alliances.map((a) => [a.seed, a]));
   const teamsOf = (seed: number): [number, number, number] => {
     const a = bySeed.get(seed);
     if (!a || !a.pick1_team_id || !a.pick2_team_id) {
-      throw new Error(`Альянс с номером ${seed} не найден или не укомплектован`);
+      throw new Error(`Alliance ${seed} was not found or is incomplete`);
     }
     return [a.captain_team_id, a.pick1_team_id, a.pick2_team_id];
   };
@@ -50,7 +50,7 @@ export async function POST() {
     })), { clearPhase: 'playoff' });
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Не удалось создать матчи плей-оффа' },
+      { error: e instanceof Error ? e.message : 'Could not create playoff matches' },
       { status: 400 });
   }
 

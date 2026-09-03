@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { nextPicker, isPickable } from '@/lib/alliances/selection';
+import { isPickable, isPoach, clearPick } from '@/lib/alliances/selection';
 import type { SelectionState } from '@/lib/alliances/selection';
 
 interface PlayoffStatus { matches: number; played: number }
@@ -29,7 +29,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
           setError('');
         } else {
           setState(null);
-          setError(alliances.data.error ?? `Не удалось загрузить данные (код ${alliances.res.status})`);
+          setError(alliances.data.error ?? `Could not load data (status ${alliances.res.status})`);
         }
         setPlayoff(playoffStatus.res.ok
           ? { matches: playoffStatus.data.matches, played: playoffStatus.data.played }
@@ -37,40 +37,66 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
       })
       .catch(() => {
         setState(null);
-        setError('Не удалось загрузить данные — проверьте соединение и попробуйте ещё раз');
+        setError('Could not load data — check the connection and try again');
       })
       .finally(() => setLoading(false));
   }
 
   useEffect(() => { load(); }, []);
 
-  async function pick(teamId: number) {
+  async function pick(allianceSeed: number, slotIndex: 0 | 1, teamId: number) {
+    if (!state) return;
+    if (isPoach(state, allianceSeed, teamId)) {
+      const from = state.find((a) => a.captain === teamId)!;
+      const ok = window.confirm(
+        `${teamNames[teamId] ?? teamId} is the captain of Alliance ${from.seed}. ` +
+        `Poach them into Alliance ${allianceSeed}? The next available team by ranking becomes the new captain of Alliance ${from.seed}.`,
+      );
+      if (!ok) return;
+    }
     setError('');
     setBusy(true);
     try {
       const res = await fetch('/api/admin/alliances', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId }),
+        body: JSON.stringify({ allianceSeed, slotIndex, teamId }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) setState(data.state);
-      else setError(data.error ?? `Не удалось выполнить выбор (код ${res.status})`);
+      else setError(data.error ?? `Could not register the pick (status ${res.status})`);
     } catch {
-      setError('Не удалось выполнить выбор — проверьте соединение и попробуйте ещё раз');
+      setError('Could not register the pick — check the connection and try again');
     } finally {
       setBusy(false);
     }
   }
 
-  // There is no per-pick undo, so this is the one chance to catch a misclick:
-  // during a live ceremony this button sits right below the picker buttons,
-  // and it discards every pick made so far with no way back.
+  async function clearSlot(allianceSeed: number, slotIndex: 0 | 1) {
+    if (!window.confirm('Clear this pick?')) return;
+    setError('');
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/alliances?seed=${allianceSeed}&slot=${slotIndex}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setState(data.state);
+      else setError(data.error ?? `Could not clear the pick (status ${res.status})`);
+    } catch {
+      setError('Could not clear the pick — check the connection and try again');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // There is no per-pick undo besides clearing one slot at a time, so this
+  // is the one chance to catch a misclick that needs a clean restart: during
+  // a live ceremony this button sits right below the picker, and it
+  // discards every pick made so far with no way back.
   function reset() {
-    const madePicks = state?.reduce((acc, a) => acc + a.picks.length, 0) ?? 0;
+    const madePicks = state?.reduce((acc, a) => acc + a.picks.filter((p) => p !== null).length, 0) ?? 0;
     const ok = window.confirm(
       madePicks > 0
-        ? `Сбросить весь выбор альянсов? Будут потеряны все сделанные выборы (${madePicks}) — отменить это будет нельзя.`
-        : 'Сбросить выбор альянсов?',
+        ? `Reset the whole alliance selection? All picks made so far (${madePicks}) will be lost — this cannot be undone.`
+        : 'Reset the alliance selection?',
     );
     if (ok) performReset();
   }
@@ -84,10 +110,10 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
         await load();
       } else {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? `Не удалось сбросить выбор (код ${res.status})`);
+        setError(data.error ?? `Could not reset the selection (status ${res.status})`);
       }
     } catch {
-      setError('Не удалось сбросить выбор — проверьте соединение и попробуйте ещё раз');
+      setError('Could not reset the selection — check the connection and try again');
     } finally {
       setBusy(false);
     }
@@ -99,10 +125,10 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
     try {
       const res = await fetch('/api/admin/playoff', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) setError(data.error ?? `Не удалось создать матчи плей-оффа (код ${res.status})`);
+      if (!res.ok) setError(data.error ?? `Could not create playoff matches (status ${res.status})`);
       else router.push('/admin/matches');
     } catch {
-      setError('Не удалось создать матчи плей-оффа — проверьте соединение и попробуйте ещё раз');
+      setError('Could not create playoff matches — check the connection and try again');
     } finally {
       setBusy(false);
     }
@@ -115,62 +141,83 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
   function regeneratePlayoff() {
     const count = playoff?.matches ?? 0;
     const ok = window.confirm(
-      `Это удалит все текущие матчи плей-офф (${count}) и создаст сетку заново. Продолжить?`,
+      `This deletes every current playoff match (${count}) and rebuilds the bracket. Continue?`,
     );
     if (ok) generatePlayoff();
   }
 
-  if (loading) return <p className="text-gray-500">Загрузка…</p>;
+  if (loading) return <p className="text-gray-500">Loading…</p>;
 
   if (!state) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2" role="alert">
-          {error || 'Не удалось загрузить данные'}
+          {error || 'Could not load data'}
         </p>
         <button onClick={load} className="px-4 py-2 rounded-md bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 text-sm">
-          Повторить
+          Retry
         </button>
       </div>
     );
   }
 
-  const picker = nextPicker(state);
-  const taken = new Set(state.flatMap((a) => [a.captain, ...a.picks]));
+  const locked = !!playoff && playoff.matches > 0;
+  const complete = state.every((a) => a.picks[0] !== null && a.picks[1] !== null);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-4">
-        {state.map((a) => {
-          // Captain of a LOWER-ranked alliance is the one legal exception to
-          // "already-taken teams can't be picked" (see isPickable / applyPick):
-          // the current picker may poach them, which promotes the next free
-          // team by ranking into the vacated captaincy.
-          const captainPoachable = picker !== null && isPickable(state, picker, a.captain);
-          return (
-            <div key={a.seed}
-              className={`p-4 rounded-lg bg-white border shadow-sm ${picker === a.seed - 1 ? 'ring-2 ring-amber-500 border-amber-200' : 'border-gray-200'}`}>
-              <h3 className="font-semibold mb-2 text-gray-900">Альянс {a.seed}</h3>
-              {captainPoachable ? (
-                <button onClick={() => pick(a.captain)} disabled={busy}
-                  className="w-full text-left text-sm p-2 -mx-1 rounded-md border border-amber-400 bg-amber-50 hover:bg-amber-100 disabled:opacity-50">
-                  <span className="block text-amber-700 font-medium">
-                    ⇪ Переманить капитана: {teamNames[a.captain] ?? a.captain}
-                  </span>
-                  <span className="block text-xs text-amber-600 mt-0.5">
-                    Перейдёт в выбирающий альянс; капитаном альянса {a.seed} станет
-                    следующая свободная команда по рейтингу
-                  </span>
-                </button>
-              ) : (
-                <p className="text-sm text-gray-900">Капитан: {teamNames[a.captain] ?? a.captain}</p>
-              )}
-              {a.picks.map((p, i) => (
-                <p key={p} className="text-sm text-gray-500">Пик {i + 1}: {teamNames[p] ?? p}</p>
-              ))}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {state.map((a) => (
+          <div key={a.seed} className="p-4 rounded-lg bg-white border border-gray-200 shadow-sm space-y-3">
+            <div>
+              <h3 className="font-semibold text-gray-900">Alliance {a.seed}</h3>
+              <p className="text-sm text-gray-500">Captain: {teamNames[a.captain] ?? a.captain}</p>
             </div>
-          );
-        })}
+
+            {locked ? (
+              <p className="text-xs text-gray-400">Locked — playoff matches already exist</p>
+            ) : (
+              ([0, 1] as const).map((slot) => {
+                const currentValue = a.picks[slot];
+                // Pretend this slot is empty before computing its options, so
+                // whatever already sits there still shows up as selected
+                // instead of vanishing from its own dropdown.
+                const hypothetical = currentValue !== null ? clearPick(state, a.seed, slot) : state;
+                const available = ranked.filter((id) => isPickable(hypothetical, a.seed, id));
+
+                return (
+                  <label key={slot} className="block text-sm text-gray-700 space-y-1">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pick {slot + 1}</span>
+                    <select
+                      value={currentValue ?? ''}
+                      disabled={busy}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          if (currentValue !== null) clearSlot(a.seed, slot);
+                        } else {
+                          pick(a.seed, slot, Number(val));
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:opacity-50"
+                    >
+                      <option value="">— choose a team —</option>
+                      {available.map((id) => {
+                        const poach = isPoach(hypothetical, a.seed, id);
+                        const poachedFrom = poach ? state.find((x) => x.captain === id)!.seed : null;
+                        return (
+                          <option key={id} value={id}>
+                            {teamNames[id] ?? id}{poachedFrom !== null ? ` — captain of Alliance ${poachedFrom}` : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        ))}
       </div>
 
       {error && (
@@ -179,45 +226,46 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
         </p>
       )}
 
-      {picker !== null ? (
-        <section className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
-          <h3 className="font-semibold mb-3 text-gray-900">Выбирает альянс {picker + 1}</h3>
-          <div className="flex flex-wrap gap-2">
-            {ranked.filter((id) => !taken.has(id)).map((id) => (
-              <button key={id} onClick={() => pick(id)} disabled={busy}
-                className="px-3 py-2 rounded-md bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 text-sm disabled:opacity-50">
-                {teamNames[id] ?? id}
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : playoff && playoff.matches > 0 ? (
-        <div className="bg-white rounded-lg p-4 space-y-2 border border-gray-200 shadow-sm">
-          <p className="text-sm text-gray-700">
-            Матчи плей-оффа созданы: {playoff.matches}, сыграно: {playoff.played}
-          </p>
-          {playoff.played === 0 ? (
-            <button onClick={regeneratePlayoff} disabled={busy}
-              className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-500 text-xs hover:text-gray-700 hover:border-gray-400 disabled:opacity-50">
-              {busy ? 'Пересоздание…' : 'Пересоздать сетку плей-оффа заново'}
-            </button>
-          ) : (
-            <p className="text-xs text-gray-500">
-              Пересоздание недоступно — есть сыгранные матчи плей-оффа
+      {complete && (
+        playoff && playoff.matches > 0 ? (
+          <div className="bg-white rounded-lg p-4 space-y-2 border border-gray-200 shadow-sm">
+            <p className="text-sm text-gray-700">
+              Playoff matches created: {playoff.matches}, played: {playoff.played}
             </p>
-          )}
-        </div>
-      ) : (
-        <button onClick={generatePlayoff} disabled={busy}
-          className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
-          {busy ? 'Создание…' : 'Создать матчи плей-оффа'}
-        </button>
+            {playoff.played === 0 ? (
+              <button onClick={regeneratePlayoff} disabled={busy}
+                className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-500 text-xs hover:text-gray-700 hover:border-gray-400 disabled:opacity-50">
+                {busy ? 'Rebuilding…' : 'Rebuild the playoff bracket'}
+              </button>
+            ) : (
+              <p className="text-xs text-gray-500">
+                Rebuilding is unavailable — some playoff matches have been played
+              </p>
+            )}
+          </div>
+        ) : (
+          <button onClick={generatePlayoff} disabled={busy}
+            className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
+            {busy ? 'Creating…' : 'Create playoff matches'}
+          </button>
+        )
       )}
 
-      <button onClick={reset} disabled={busy}
-        className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50">
-        Сбросить выбор альянсов
-      </button>
+      {locked ? (
+        <p className="text-xs text-gray-400">
+          Alliance selection is locked — playoff matches already exist
+        </p>
+      ) : (
+        <div className="border-t border-gray-200 pt-4">
+          <button onClick={reset} disabled={busy}
+            className="px-4 py-2 rounded-md bg-white text-red-600 font-semibold border border-red-300 hover:bg-red-50 disabled:opacity-50">
+            {busy ? 'Resetting…' : 'Reset alliance selection'}
+          </button>
+          <p className="text-xs text-gray-500 mt-1.5">
+            Clears every pick made so far for all three alliances. This cannot be undone.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

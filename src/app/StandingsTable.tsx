@@ -10,12 +10,68 @@ interface Match {
   red: string[]; blue: string[]; redScore: number | null; blueScore: number | null;
 }
 
+function MatchSection({ title, rows, highlight = false, isHit }: {
+  title: string;
+  rows: Match[];
+  highlight?: boolean;
+  isHit: (m: Match) => boolean;
+}) {
+  return (
+    <div>
+      <div className={`px-4 py-2 text-xs font-black uppercase tracking-widest ${highlight ? 'text-amber-700 bg-amber-50 border-y border-amber-200' : 'text-gray-500 bg-gray-50 border-y border-gray-200'}`}>
+        {title}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[420px] text-sm">
+          <thead>
+            <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
+              <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">Match</th>
+              <th className="text-left px-3 sm:px-4 py-2">Red alliance</th>
+              <th className="text-center px-3 sm:px-4 py-2 w-24 sm:w-32">Score</th>
+              <th className="text-right px-3 sm:px-4 py-2">Blue alliance</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((m) => {
+              const phaseLabel = `${m.phase === 'playoff' ? 'P' : 'Q'}${m.number}`;
+              const redWins = m.played && m.redScore !== null && m.blueScore !== null && m.redScore > m.blueScore;
+              const blueWins = m.played && m.redScore !== null && m.blueScore !== null && m.blueScore > m.redScore;
+              const hit = isHit(m);
+              return (
+                <tr key={m.id} className={hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : 'hover:bg-gray-50'}>
+                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap">
+                    <span className="font-mono font-black text-gray-900 text-xs sm:text-sm">{phaseLabel}</span>
+                  </td>
+                  <td className="px-3 sm:px-4 py-2 sm:py-2.5">
+                    <span className={`text-red-600 text-xs sm:text-sm ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
+                  </td>
+                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-center">
+                    {m.played
+                      ? <span className="font-mono font-bold text-gray-900 text-xs sm:text-sm">{m.redScore} : {m.blueScore}</span>
+                      : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-right">
+                    <span className={`text-blue-600 text-xs sm:text-sm ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function StandingsTable() {
   const [data, setData] = useState<{ standings: Standing[]; matches: Match[] } | null>(null);
-  // Опросы каждые 10с не гарантированно приходят по порядку: если предыдущий
-  // запрос задержался, его ответ может прилететь позже свежего и затереть
-  // актуальные данные устаревшими. Монотонный id запроса решает это —
-  // применяем ответ, только если это всё ещё самый последний запущенный запрос.
+  const [view, setView] = useState<'standings' | 'matches'>('standings');
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [query, setQuery] = useState('');
+  // The 10s polls are not guaranteed to come back in order: a delayed request
+  // can land after a fresher one and overwrite current data with stale data.
+  // A monotonic request id fixes that — apply a response only while it is
+  // still the most recently started request.
   const latestRequestId = useRef(0);
 
   useEffect(() => {
@@ -30,7 +86,10 @@ export default function StandingsTable() {
       fetch('/api/standings', { signal: controller.signal })
         .then((r) => r.json())
         .then((json) => {
-          if (latestRequestId.current === requestId) setData(json);
+          if (latestRequestId.current === requestId) {
+            setData(json);
+            setLastUpdate(new Date());
+          }
         })
         .catch(() => {});
     };
@@ -43,78 +102,102 @@ export default function StandingsTable() {
     };
   }, []);
 
-  if (!data) return <p className="text-gray-400">Загрузка…</p>;
+  if (!data) return <p className="text-gray-400">Loading…</p>;
+
+  const q = query.trim().toLowerCase();
+  const isHit = (m: Match) =>
+    q.length > 0 && (m.red.some((n) => n.toLowerCase().includes(q)) || m.blue.some((n) => n.toLowerCase().includes(q)));
+  const totalHits = q ? data.matches.filter(isHit).length : 0;
+  const playoffMatches = data.matches.filter((m) => m.phase === 'playoff');
+  const qualMatches = data.matches.filter((m) => m.phase !== 'playoff');
 
   return (
-    <div className="space-y-8">
-      <section>
-        <h2 className="text-lg font-semibold mb-3 text-gray-900">Рейтинг команд</h2>
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[320px] border-collapse">
-              <thead>
-                <tr>
-                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 w-8">#</th>
-                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Команда</th>
-                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Рейтинг</th>
-                  <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Матчей</th>
-                  <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Лучший</th>
-                  <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Подавление</th>
-                </tr>
-              </thead>
-              <tbody className="text-base md:text-lg">
-                {data.standings.map((s, i) => (
-                  <tr key={s.teamId} className="hover:bg-gray-50 border-b border-gray-100 last:border-0">
-                    <td className="px-2 sm:px-6 py-2 sm:py-3 text-gray-400 w-8">{i + 1}</td>
-                    <td className="px-2 sm:px-6 py-2 sm:py-3 text-blue-600 font-medium text-sm md:text-base lg:text-lg">{s.name}</td>
-                    <td className="px-2 sm:px-6 py-2 sm:py-3">
-                      {s.played === 0
-                        ? <span className="text-gray-400 italic font-mono text-sm md:text-base lg:text-lg">—</span>
-                        : <strong className="font-mono text-sm md:text-base lg:text-lg">{s.rankingScore.toFixed(1)}</strong>}
-                    </td>
-                    <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.played}</td>
-                    <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.best}</td>
-                    <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.suppressionTotal}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between border-b border-gray-200 px-4">
+        <div className="flex gap-1">
+          <button
+            onClick={() => setView('standings')}
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+              view === 'standings' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+            }`}
+          >
+            Team rankings
+          </button>
+          <button
+            onClick={() => setView('matches')}
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+              view === 'matches' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+            }`}
+          >
+            Matches
+          </button>
         </div>
-      </section>
+        {lastUpdate && (
+          <span className="text-[10px] text-green-600 font-semibold animate-pulse">live</span>
+        )}
+      </div>
 
-      <section>
-        <h2 className="text-lg font-semibold mb-3 text-gray-900">Матчи</h2>
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
-          {data.matches.map((m) => {
-            const phaseLabel = `${m.phase === 'playoff' ? 'ПО' : 'К'}${m.number}`;
-            const score = m.played
-              ? <span className="font-mono text-sm md:text-base lg:text-lg text-gray-900 whitespace-nowrap">{m.redScore} : {m.blueScore}</span>
-              : <span className="font-mono text-sm md:text-base lg:text-lg text-gray-400 italic">—</span>;
-            return (
-              <div key={m.id} className="hover:bg-gray-50 px-4 sm:px-6 py-3">
-                {/* Phone: red line-up, score, blue line-up stacked — each stays on its own readable line
-                    instead of being squeezed into a narrow side-by-side column. */}
-                <div className="sm:hidden space-y-1">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-gray-400 font-mono text-xs">{phaseLabel}</span>
-                    {score}
-                  </div>
-                  <div className="text-red-600 font-medium text-sm">{m.red.join(' · ')}</div>
-                  <div className="text-blue-600 font-medium text-sm">{m.blue.join(' · ')}</div>
-                </div>
-                {/* Wide screens: left/centre/right row. */}
-                <div className="hidden sm:flex sm:items-center gap-4 text-base md:text-lg">
-                  <span className="w-16 flex-shrink-0 text-gray-400 font-mono text-sm md:text-base lg:text-lg">{phaseLabel}</span>
-                  <span className="flex-1 min-w-0 text-red-600 font-medium text-sm md:text-base lg:text-lg">{m.red.join(' · ')}</span>
-                  <span className="min-w-[6.5rem] flex-shrink-0 text-center">{score}</span>
-                  <span className="flex-1 min-w-0 text-blue-600 font-medium text-sm md:text-base lg:text-lg text-right">{m.blue.join(' · ')}</span>
-                </div>
-              </div>
-            );
-          })}
+      {view === 'standings' ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[320px] border-collapse">
+            <thead>
+              <tr>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 w-8">#</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Team</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Ranking score</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Played</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Best</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Suppression</th>
+              </tr>
+            </thead>
+            <tbody className="text-base md:text-lg">
+              {data.standings.map((s, i) => (
+                <tr key={s.teamId} className="hover:bg-gray-50 border-b border-gray-100 last:border-0">
+                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-gray-400 w-8">{i + 1}</td>
+                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-blue-600 font-medium text-sm md:text-base lg:text-lg">{s.name}</td>
+                  <td className="px-2 sm:px-6 py-2 sm:py-3">
+                    {s.played === 0
+                      ? <span className="text-gray-400 italic font-mono text-sm md:text-base lg:text-lg">—</span>
+                      : <strong className="font-mono text-sm md:text-base lg:text-lg">{s.rankingScore.toFixed(1)}</strong>}
+                  </td>
+                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.played}</td>
+                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.best}</td>
+                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.suppressionTotal}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </section>
+      ) : (
+        <div className="px-1 sm:px-2">
+          <div className="flex items-center justify-between gap-3 px-3 sm:px-4 py-3">
+            <div className="text-xs text-gray-400">
+              {q.length > 0 && <span className="font-semibold text-gray-600">Found {totalHits}</span>}
+            </div>
+            <div className="relative w-full max-w-[260px] sm:max-w-xs">
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search teams…"
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+              <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z" />
+              </svg>
+              {query && (
+                <button onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-600 text-sm">
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+          {playoffMatches.length > 0 && (
+            <MatchSection title="Playoffs" rows={playoffMatches} highlight isHit={isHit} />
+          )}
+          <MatchSection title="Qualification" rows={qualMatches} isHit={isHit} />
+        </div>
+      )}
     </div>
   );
 }

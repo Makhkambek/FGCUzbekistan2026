@@ -4,7 +4,7 @@ export interface ScheduledMatch {
   blue: number[];
 }
 
-/** Детерминированный ГПСЧ — расписание воспроизводимо по seed. */
+/** Deterministic PRNG — the schedule is reproducible from the seed. */
 export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -18,8 +18,8 @@ export function mulberry32(seed: number): () => number {
 export function generateSchedule(
   teamIds: number[], matchesPerTeam: number, seed: number,
 ): ScheduledMatch[] {
-  if (teamIds.length < 6) throw new Error('Для расписания нужно минимум 6 команд');
-  if (matchesPerTeam < 1) throw new Error('Матчей на команду должно быть не меньше одного');
+  if (teamIds.length < 6) throw new Error('A schedule needs at least 6 teams');
+  if (matchesPerTeam < 1) throw new Error('Matches per team must be at least one');
 
   const rng = mulberry32(seed);
   const totalMatches = Math.floor((teamIds.length * matchesPerTeam) / 6);
@@ -28,7 +28,7 @@ export function generateSchedule(
   const schedule: ScheduledMatch[] = [];
 
   for (let i = 0; i < totalMatches; i++) {
-    // Приоритет: кто меньше играл, затем кто дольше не выходил, затем случайно.
+    // Priority: fewest matches played, then longest time off the field, then random.
     const picked = [...teamIds]
       .map((id) => ({ id, r: rng() }))
       .sort((a, b) =>
@@ -38,7 +38,7 @@ export function generateSchedule(
       .slice(0, 6)
       .map((x) => x.id);
 
-    // Случайно тасуем шестёрку и делим пополам.
+    // Shuffle the six at random and split them in half.
     for (let j = picked.length - 1; j > 0; j--) {
       const k = Math.floor(rng() * (j + 1));
       [picked[j], picked[k]] = [picked[k], picked[j]];

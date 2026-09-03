@@ -20,24 +20,24 @@ export default function LoginPage() {
     });
     setBusy(false);
     if (res.ok) router.push('/admin');
-    else setError((await res.json().catch(() => ({}))).error ?? 'Ошибка входа');
+    else setError((await res.json().catch(() => ({}))).error ?? 'Sign-in failed');
   }
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-100 text-gray-900">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 p-8 bg-white rounded-lg shadow-sm border border-gray-200">
-        <h1 className="text-xl font-semibold">FGC Uzbekistan · вход</h1>
+        <h1 className="text-xl font-semibold">FGC Uzbekistan · sign in</h1>
         <input className="w-full px-3 py-2 rounded-md bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-          placeholder="Логин" value={username} onChange={(e) => setUsername(e.target.value)} />
+          placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
         <input className="w-full px-3 py-2 rounded-md bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-          type="password" placeholder="Пароль" value={password}
+          type="password" placeholder="Password" value={password}
           onChange={(e) => setPassword(e.target.value)} />
         {error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>
         )}
         <button disabled={busy}
           className="w-full py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
-          {busy ? 'Вход…' : 'Войти'}
+          {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
     </main>

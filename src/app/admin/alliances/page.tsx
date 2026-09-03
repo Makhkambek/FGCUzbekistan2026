@@ -10,14 +10,15 @@ export default async function AlliancesPage() {
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
 
   return (
-    <main className="min-h-screen bg-gray-100 text-gray-900 p-8 space-y-6">
-      <h1 className="text-2xl font-bold">Выбор альянсов</h1>
+    <>
+      <h1 className="text-2xl font-bold">Alliance selection</h1>
       <p className="text-gray-500 text-sm">
-        Капитаны — топ-3 по рейтингу. Порядок выбора змейкой: 1→2→3, затем 3→2→1.
-        Если капитан выбирает нижестоящего капитана, тот уходит в его альянс,
-        а капитанство переходит следующей свободной команде.
+        Captains are the top 3 teams by ranking. Each alliance has two pick dropdowns, filled in
+        any order. Picking another alliance&apos;s captain (only a lower-seeded one)
+        poaches them onto this alliance — confirm the prompt — and the next available team by
+        ranking becomes that alliance&apos;s new captain.
       </p>
       <AlliancePicker teamNames={teamNames} />
-    </main>
+    </>
   );
 }

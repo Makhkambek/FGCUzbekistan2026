@@ -49,7 +49,7 @@ export async function insertMatches(rows: {
     for (const r of rows) {
       if (r.red.length !== 3 || r.blue.length !== 3) {
         throw new Error(
-          `Матч №${r.matchNumber}: у каждого альянса должно быть ровно три команды`,
+          `Match ${r.matchNumber}: each alliance must have exactly three teams`,
         );
       }
       await conn.execute(
@@ -71,6 +71,12 @@ export async function insertMatches(rows: {
 
 export async function deleteMatchesByPhase(phase: 'qualification' | 'playoff'): Promise<void> {
   await getPool().execute('DELETE FROM matches WHERE phase = ?', [phase]);
+}
+
+export async function getMatchById(id: number): Promise<MatchRow | null> {
+  const [rows] = await getPool().execute<MatchRow[]>(
+    'SELECT * FROM matches WHERE id = ?', [id]);
+  return rows[0] ?? null;
 }
 
 /**
@@ -115,5 +121,27 @@ export async function saveMatchResult(id: number, r: MatchResultInput): Promise<
      r.partnerClimbRed, r.partnerClimbBlue,
      r.minorFoulsRed, r.majorFoulsRed, r.minorFoulsBlue, r.majorFoulsBlue,
      ...r.cardRed, ...r.cardBlue, id]);
+  return result.affectedRows > 0;
+}
+
+/**
+ * Clears a single match's entered result back to the unplayed defaults
+ * (same values db/schema.sql assigns a freshly generated match) without
+ * touching its match_number, phase, or team assignments — a judge can
+ * re-enter the result afterwards without regenerating the schedule.
+ */
+export async function resetMatchResult(id: number): Promise<boolean> {
+  const [result] = await getPool().execute<ResultSetHeader>(
+    `UPDATE matches SET played = FALSE,
+       suppression_red = 0, suppression_blue = 0, extinguisher = 0,
+       climb_red1 = 'none', climb_red2 = 'none', climb_red3 = 'none',
+       climb_blue1 = 'none', climb_blue2 = 'none', climb_blue3 = 'none',
+       partner_climb_red = 0, partner_climb_blue = 0,
+       minor_fouls_red = 0, major_fouls_red = 0,
+       minor_fouls_blue = 0, major_fouls_blue = 0,
+       card_red1 = 'none', card_red2 = 'none', card_red3 = 'none',
+       card_blue1 = 'none', card_blue2 = 'none', card_blue3 = 'none'
+     WHERE id = ?`,
+    [id]);
   return result.affectedRows > 0;
 }

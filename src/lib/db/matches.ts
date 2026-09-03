@@ -1,4 +1,5 @@
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
+import type { PoolConnection } from 'mysql2/promise';
 import { getPool } from './pool';
 import type { MatchResultInput } from '../validation';
 
@@ -30,6 +31,27 @@ export async function listMatches(phase?: 'qualification' | 'playoff'): Promise<
   return rows;
 }
 
+/**
+ * Points the projector display back at the standings if it is currently
+ * showing a match in `phase`, using the caller's connection so it lands in
+ * the same transaction as the delete that follows.
+ *
+ * display_state.match_id references matches(id) with MySQL's default
+ * RESTRICT, so deleting a phase while the display still points into it fails
+ * outright with a foreign key error — the reset or regeneration then surfaces
+ * as a 500 and silently does nothing. Pressing "Start match" and later
+ * rebuilding the schedule is an ordinary sequence for a judge, so both paths
+ * clear the pointer first. Standings is the right landing spot: it is also
+ * where buildDisplayPayload falls back when a matchId no longer resolves.
+ */
+async function clearDisplayPointerForPhase(
+  conn: PoolConnection, phase: 'qualification' | 'playoff',
+): Promise<void> {
+  await conn.execute(
+    `UPDATE display_state SET phase = 'standings', match_id = NULL
+      WHERE match_id IN (SELECT id FROM matches WHERE phase = ?)`, [phase]);
+}
+
 export async function insertMatches(rows: {
   matchNumber: number; phase: 'qualification' | 'playoff';
   red: [number, number, number]; blue: [number, number, number];
@@ -44,6 +66,7 @@ export async function insertMatches(rows: {
     // insert below fails, the rollback restores the matches that were about
     // to be replaced instead of leaving the phase empty.
     if (options?.clearPhase) {
+      await clearDisplayPointerForPhase(conn, options.clearPhase);
       await conn.execute('DELETE FROM matches WHERE phase = ?', [options.clearPhase]);
     }
     for (const r of rows) {
@@ -70,7 +93,18 @@ export async function insertMatches(rows: {
 }
 
 export async function deleteMatchesByPhase(phase: 'qualification' | 'playoff'): Promise<void> {
-  await getPool().execute('DELETE FROM matches WHERE phase = ?', [phase]);
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+    await clearDisplayPointerForPhase(conn, phase);
+    await conn.execute('DELETE FROM matches WHERE phase = ?', [phase]);
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
 }
 
 export async function getMatchById(id: number): Promise<MatchRow | null> {

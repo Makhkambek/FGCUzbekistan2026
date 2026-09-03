@@ -5,6 +5,7 @@ import { insertMatches, listMatches, deleteMatchesByPhase } from '@/lib/db/match
 import { getAlliances } from '@/lib/db/alliances';
 import { generateSchedule } from '@/lib/schedule/generate';
 import { scheduleParamsSchema } from '@/lib/validation';
+import { scheduleResetBlockReason } from '@/lib/schedule/guards';
 
 export async function POST(req: NextRequest) {
   if (!await requireSessionApi()) return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
@@ -43,12 +44,18 @@ export async function DELETE() {
 
   // Alliance picks and the playoff bracket are both derived from the
   // qualification standings — wiping qualification matches out from under
-  // them would leave a bracket that no longer matches any real ranking.
-  const [alliances, playoffMatches] = await Promise.all([getAlliances(), listMatches('playoff')]);
-  if (alliances.length > 0 || playoffMatches.length > 0) {
-    return NextResponse.json(
-      { error: 'Alliances or playoff matches already exist — reset those first' }, { status: 409 });
-  }
+  // them would leave a bracket that no longer matches any real ranking. And
+  // the results themselves are unrecoverable, so a played match blocks the
+  // reset outright, exactly as it blocks regeneration in POST above.
+  const [alliances, playoffMatches, qualMatches] = await Promise.all([
+    getAlliances(), listMatches('playoff'), listMatches('qualification'),
+  ]);
+  const blocked = scheduleResetBlockReason({
+    hasPlayedMatches: qualMatches.some((m) => m.played),
+    hasAlliances: alliances.length > 0,
+    hasPlayoffMatches: playoffMatches.length > 0,
+  });
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
 
   await deleteMatchesByPhase('qualification');
   return NextResponse.json({ ok: true });

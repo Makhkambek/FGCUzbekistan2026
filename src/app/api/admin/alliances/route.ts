@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSessionApi } from '@/lib/auth/require-session';
-import { getAlliances, saveAlliances } from '@/lib/db/alliances';
+import { getAlliances, saveAlliances, mutateAlliances } from '@/lib/db/alliances';
+import type { AllianceRow } from '@/lib/db/alliances';
 import { listTeams } from '@/lib/db/teams';
 import { listMatches } from '@/lib/db/matches';
 import { standingsFromRows } from '@/lib/standings';
@@ -54,14 +55,17 @@ async function rankedTeamIds(): Promise<number[]> {
 // Always re-reads alliances from the database — never cache this across
 // requests. A double-submitted pick must see the previous pick's write,
 // otherwise the same team could be seated twice.
-async function currentState(ranked: number[]): Promise<SelectionState> {
-  const rows = await getAlliances();
+function stateFromRows(rows: AllianceRow[], ranked: number[]): SelectionState {
   if (rows.length === 0) return initialSelection(ranked);
   return rows.map((r) => ({
     seed: r.seed,
     captain: r.captain_team_id,
     picks: [r.pick1_team_id, r.pick2_team_id] as [PickSlot, PickSlot],
   }));
+}
+
+async function currentState(ranked: number[]): Promise<SelectionState> {
+  return stateFromRows(await getAlliances(), ranked);
 }
 
 export async function GET() {
@@ -88,23 +92,18 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
 
   const ranked = await rankedTeamIds();
-  let state: SelectionState;
   try {
-    // Fresh read on every request: this is what makes a double-submitted
-    // pick safe. If it were derived from anything cached, the second of two
-    // quick clicks could seat the same team twice.
-    state = await currentState(ranked);
-  } catch {
-    return notEnoughTeams(ranked.length);
-  }
-
-  try {
-    const next = setPick(state, ranked, parsed.data.allianceSeed, parsed.data.slotIndex, parsed.data.teamId);
-    await saveAlliances(next);
+    // Read and write inside one locked transaction: a pick made on another
+    // referee's laptop at the same moment must be visible here, otherwise
+    // this request would rewrite the whole table without it.
+    const next = await mutateAlliances((rows) =>
+      setPick(stateFromRows(rows, ranked), ranked,
+        parsed.data.allianceSeed, parsed.data.slotIndex, parsed.data.teamId));
     return NextResponse.json({ state: next });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Pick failed' }, { status: 400 });
+    const message = e instanceof Error ? e.message : 'Pick failed';
+    if (message.includes(String(MIN_TEAMS))) return notEnoughTeams(ranked.length);
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 
@@ -129,15 +128,13 @@ export async function DELETE(req: NextRequest) {
     if (!parsed.success) return NextResponse.json({ error: 'Invalid seed or slot' }, { status: 400 });
 
     const ranked = await rankedTeamIds();
-    let state: SelectionState;
     try {
-      state = await currentState(ranked);
+      const next = await mutateAlliances((rows) =>
+        clearPick(stateFromRows(rows, ranked), parsed.data.seed, parsed.data.slot));
+      return NextResponse.json({ state: next });
     } catch {
       return notEnoughTeams(ranked.length);
     }
-    const next = clearPick(state, parsed.data.seed, parsed.data.slot);
-    await saveAlliances(next);
-    return NextResponse.json({ state: next });
   }
 
   // No params: full reset back to captains-only.

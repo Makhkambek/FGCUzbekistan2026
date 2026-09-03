@@ -1,6 +1,7 @@
 import { requireSession } from '@/lib/auth/require-session';
 import { listMatches } from '@/lib/db/matches';
 import { listTeams } from '@/lib/db/teams';
+import { getAlliances } from '@/lib/db/alliances';
 import { matchRowToInput } from '@/lib/standings';
 import { computeMatchScores } from '@/lib/scoring/match';
 import MatchList from './MatchList';
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function MatchesPage() {
   await requireSession();
-  const [matches, teams] = await Promise.all([listMatches(), listTeams()]);
+  const [matches, teams, alliances] = await Promise.all([listMatches(), listTeams(), getAlliances()]);
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
 
   const rows = matches.map((m) => {
@@ -41,6 +42,17 @@ export default async function MatchesPage() {
         <h1 className="text-2xl font-bold">Match results</h1>
         <ShowStandingsButton />
       </div>
+      {alliances.length > 0 && (
+        // Alliance captains are written once, when the draft starts, and are
+        // never recomputed. Re-scoring a qualification match now changes the
+        // rankings but not the captains already seated — the operator has to
+        // know that, because nothing else on the page says it.
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Alliance selection has started, so the qualification rankings are frozen.
+          Editing a result here still updates the standings, but it will not move
+          alliance captains — those were seated when the draft began.
+        </p>
+      )}
       {rows.length === 0
         ? <p className="text-gray-500">The schedule has not been generated yet.</p>
         : <MatchList matches={rows} />}

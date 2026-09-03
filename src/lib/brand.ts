@@ -1,13 +1,10 @@
 /**
- * The event's broadcast backgrounds, shared by the public board and the
- * projector so the three screens read as one event rather than three pages.
+ * The event's background, shared by the public board and every projector
+ * screen so they read as one event rather than three separate pages.
  */
-export const PLAYOFF_BACKGROUND =
+export const EVENT_BACKGROUND =
   'linear-gradient(158deg, oklch(0.58 0.27 348) 0%, oklch(0.63 0.24 356) 26%, '
   + 'oklch(0.7 0.17 30) 52%, oklch(0.68 0.15 235) 78%, oklch(0.62 0.17 244) 100%)';
-
-export const MATCH_BACKGROUND =
-  'linear-gradient(160deg, oklch(0.3 0.03 245) 0%, oklch(0.2 0.025 250) 55%, oklch(0.15 0.02 255) 100%)';
 
 /** Faint grid laid over a gradient, so a large flat area does not band. */
 export function gridTexture(opacity: number): React.CSSProperties {

@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import StandingsTable from '../StandingsTable';
 import FullscreenButton from './FullscreenButton';
-import { PLAYOFF_BACKGROUND, MATCH_BACKGROUND, gridTexture } from '@/lib/brand';
+import { EVENT_BACKGROUND, gridTexture } from '@/lib/brand';
 
 interface AllianceLineup { teams: string[] }
 interface AllianceBreakdown { suppression: number; multiplier: number; partnerClimbPoints: number; penalty: number }
@@ -162,7 +162,7 @@ export default function DisplayPage() {
       // Same broadcast gradient as the playoff screen: the qualification
       // rankings are on the projector between every match, and flat grey next
       // to the other two screens looked like a page that had failed to load.
-      <div style={{ minHeight: '100vh', background: PLAYOFF_BACKGROUND, position: 'relative' }}>
+      <div style={{ minHeight: '100vh', background: EVENT_BACKGROUND, position: 'relative' }}>
         <div style={{ ...gridTexture(0.05), position: 'fixed' }} />
         <FullscreenButton />
         <header style={{ position: 'relative', padding: '26px 48px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 32 }}>
@@ -251,9 +251,11 @@ export default function DisplayPage() {
         transform: `scale(${scale})`,
         display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
         padding: '40px 60px 34px', color: 'oklch(1 0 0)', fontFamily: F_SANS,
-        background: isPlayoffMode ? PLAYOFF_BACKGROUND : MATCH_BACKGROUND,
+        // One gradient for every broadcast screen — the match screen used to
+        // be dark navy, which made it look like a different event.
+        background: EVENT_BACKGROUND,
       }}>
-        <div style={gridTexture(isPlayoffMode ? 0.05 : 0.028)} />
+        <div style={gridTexture(0.05)} />
 
         {!data && (
           <p style={{ color: 'oklch(1 0 0 / 0.4)', margin: 'auto' }}>
@@ -287,17 +289,17 @@ function Ticker({ label, clock }: { label: string | null; clock: Date | null }) 
   return (
     <div style={{
       position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      gap: 40, marginTop: 22, paddingTop: 18, borderTop: '1px solid oklch(1 0 0 / 0.14)',
+      gap: 40, marginTop: 22, paddingTop: 18, borderTop: '1px solid oklch(1 0 0 / 0.4)',
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, minWidth: 0 }}>
-        <div style={{ fontFamily: F_MONO, fontSize: 19, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(0.74 0.02 250)', whiteSpace: 'nowrap' }}>
+        <div style={{ fontFamily: F_MONO, fontSize: 19, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.85)', whiteSpace: 'nowrap' }}>
           Next match
         </div>
         <div style={{ fontFamily: F_SANS, fontWeight: 600, fontSize: 26, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {label ?? 'No matches remaining'}
         </div>
       </div>
-      <div style={{ fontFamily: F_MONO, fontSize: 19, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.66 0.02 250)', flexShrink: 0 }}>
+      <div style={{ fontFamily: F_MONO, fontSize: 19, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.85)', flexShrink: 0 }}>
         {clock ? clock.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
       </div>
     </div>
@@ -339,7 +341,7 @@ function MatchScreen({ data, nextMatchLabel, clock }: {
             <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 34, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
               FGC Uzbekistan 2026
             </div>
-            <div style={{ fontFamily: F_MONO, fontSize: 17, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(0.72 0.02 250)' }}>
+            <div style={{ fontFamily: F_MONO, fontSize: 17, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.88)' }}>
               {data.matchPhase === 'playoff' ? 'Playoff' : 'Qualification'} · Tashkent
             </div>
           </div>

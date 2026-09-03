@@ -1,9 +1,9 @@
 import StandingsTable from './StandingsTable';
-import { PLAYOFF_BACKGROUND, gridTexture } from '@/lib/brand';
+import { EVENT_BACKGROUND, gridTexture } from '@/lib/brand';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen text-gray-900" style={{ background: PLAYOFF_BACKGROUND }}>
+    <div className="min-h-screen text-gray-900" style={{ background: EVENT_BACKGROUND }}>
       <div style={{ ...gridTexture(0.05), position: 'fixed' }} />
       <header className="relative px-4 sm:px-8 pt-5 sm:pt-7 pb-4 sm:pb-6 flex items-start justify-between gap-4">
         <div>

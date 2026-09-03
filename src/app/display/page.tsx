@@ -46,6 +46,14 @@ function useCanvasScale() {
   return scale;
 }
 
+/** The pink-to-blue broadcast gradient used by the playoff screen. */
+const PLAYOFF_BACKGROUND =
+  'linear-gradient(158deg, oklch(0.58 0.27 348) 0%, oklch(0.63 0.24 356) 26%, '
+  + 'oklch(0.7 0.17 30) 52%, oklch(0.68 0.15 235) 78%, oklch(0.62 0.17 244) 100%)';
+
+const MATCH_BACKGROUND =
+  'linear-gradient(160deg, oklch(0.3 0.03 245) 0%, oklch(0.2 0.025 250) 55%, oklch(0.15 0.02 255) 100%)';
+
 function gridTexture(opacity: number): React.CSSProperties {
   return {
     position: 'absolute', inset: 0, pointerEvents: 'none',
@@ -75,6 +83,7 @@ function useClock() {
 export default function DisplayPage() {
   const [data, setData] = useState<DisplayPayload | null>(null);
   const [matches, setMatches] = useState<MatchSummary[] | null>(null);
+  const [teamCount, setTeamCount] = useState(0);
   const [allianceStandings, setAllianceStandings] = useState<AllianceStanding[] | null>(null);
   const scale = useCanvasScale();
   const clock = useClock();
@@ -143,6 +152,7 @@ export default function DisplayPage() {
         .then((json) => {
           if (cancelled) return;
           setMatches(json.matches);
+          setTeamCount(json.standings?.length ?? 0);
           setAllianceStandings(json.allianceStandings ?? null);
           lastStandingsAt.current = Date.now();
         })
@@ -165,17 +175,42 @@ export default function DisplayPage() {
   // public board that's already at "/". No dark canvas, no scaling.
   if (data?.phase === 'standings' && !isPlayoffMode) {
     return (
-      <div className="min-h-screen bg-gray-100 text-gray-900">
+      // Same broadcast gradient as the playoff screen: the qualification
+      // rankings are on the projector between every match, and flat grey next
+      // to the other two screens looked like a page that had failed to load.
+      <div style={{ minHeight: '100vh', background: PLAYOFF_BACKGROUND, position: 'relative' }}>
+        <div style={{ ...gridTexture(0.05), position: 'fixed' }} />
         <FullscreenButton />
-        <header className="bg-white border-b border-gray-200 sticky top-0 z-10 h-14 sm:h-16 flex items-center px-4 sm:px-8">
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold leading-tight">FGC Uzbekistan 2026</h1>
-            <p className="text-xs text-gray-500 leading-tight">Igniting Innovation · live results and rankings</p>
+        <header style={{ position: 'relative', padding: '26px 48px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 32 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontFamily: F_MONO, fontSize: 20, fontWeight: 600, letterSpacing: '0.44em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.95)' }}>
+              Uzbekistan
+            </div>
+            <div style={{
+              fontFamily: F_HEAD, fontWeight: 700, fontSize: 62, lineHeight: 0.9, letterSpacing: '0.04em',
+              textTransform: 'uppercase', color: 'oklch(1 0 0)', textShadow: 'oklch(0.25 0.08 340 / 0.5) 0px 4px 24px',
+            }}>
+              Qualification
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3, color: 'oklch(1 0 0)' }}>
+            <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 30, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+              FGC Uzbekistan 2026
+            </div>
+            <div style={{ fontFamily: F_MONO, fontSize: 16, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.88)' }}>
+              Igniting Innovation · Tashkent
+            </div>
           </div>
         </header>
         {/* The same board the hall reads on their phones, but this one is
             seen from 15+ metres — scale it up for the projector. */}
-        <main className="p-4 sm:p-8" style={{ zoom: 1.6 }}>
+        {/* Zoomed to fill a projector, but the hall can only read what fits on
+            the screen — nobody is going to scroll it. Roughly 190px of chrome
+            plus ~85px per row at zoom 1, fitted into 1080px. */}
+        <main style={{
+          position: 'relative', padding: '20px 30px 30px',
+          zoom: Math.min(1.6, Math.max(0.55, 880 / (110 + 53 * Math.max(teamCount, 1)))),
+        }}>
           <StandingsTable />
         </main>
       </div>
@@ -232,9 +267,7 @@ export default function DisplayPage() {
         transform: `scale(${scale})`,
         display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
         padding: '40px 60px 34px', color: 'oklch(1 0 0)', fontFamily: F_SANS,
-        background: isPlayoffMode
-          ? 'linear-gradient(158deg, oklch(0.58 0.27 348) 0%, oklch(0.63 0.24 356) 26%, oklch(0.7 0.17 30) 52%, oklch(0.68 0.15 235) 78%, oklch(0.62 0.17 244) 100%)'
-          : 'linear-gradient(160deg, oklch(0.3 0.03 245) 0%, oklch(0.2 0.025 250) 55%, oklch(0.15 0.02 255) 100%)',
+        background: isPlayoffMode ? PLAYOFF_BACKGROUND : MATCH_BACKGROUND,
       }}>
         <div style={gridTexture(isPlayoffMode ? 0.05 : 0.028)} />
 

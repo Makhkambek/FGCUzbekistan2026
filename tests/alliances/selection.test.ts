@@ -23,11 +23,11 @@ describe('applyPick', () => {
 
   it('нельзя выбрать уже занятую команду', () => {
     const s = applyPick(initialSelection(ranked), ranked, 5);
-    expect(() => applyPick(s, ranked, 5)).toThrow(/уже в альянсе/i);
+    expect(() => applyPick(s, ranked, 5)).toThrow(/already in an alliance/i);
   });
 
   it('нельзя выбрать самого себя', () => {
-    expect(() => applyPick(initialSelection(ranked), ranked, 1)).toThrow(/уже в альянсе/i);
+    expect(() => applyPick(initialSelection(ranked), ranked, 1)).toThrow(/already in an alliance/i);
   });
 
   it('капитан выбрал нижестоящего капитана — тот уходит к нему, капитанство вниз', () => {
@@ -41,7 +41,7 @@ describe('applyPick', () => {
   it('нельзя выбрать капитана более высокого альянса', () => {
     // Ход альянса 1; проверяем запрет с позиции альянса 2 после первого выбора.
     let s = applyPick(initialSelection(ranked), ranked, 5); // альянс 1 берёт 5
-    expect(() => applyPick(s, ranked, 1)).toThrow(/уже в альянсе/i);
+    expect(() => applyPick(s, ranked, 1)).toThrow(/already in an alliance/i);
   });
 
   it('после шести выборов очередь заканчивается', () => {
@@ -61,7 +61,7 @@ describe('applyPick', () => {
   });
 
   it('нельзя выбрать команду не из рейтинга', () => {
-    expect(() => applyPick(initialSelection(ranked), ranked, 99)).toThrow(/не найдена в рейтинге/i);
+    expect(() => applyPick(initialSelection(ranked), ranked, 99)).toThrow(/not in the ranking/i);
   });
 
   it('при вакантности капитана — выбирается следующая свободная по рейтингу, не по индексу', () => {

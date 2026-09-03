@@ -49,7 +49,7 @@ export async function insertMatches(rows: {
     for (const r of rows) {
       if (r.red.length !== 3 || r.blue.length !== 3) {
         throw new Error(
-          `Матч №${r.matchNumber}: у каждого альянса должно быть ровно три команды`,
+          `Match ${r.matchNumber}: each alliance must have exactly three teams`,
         );
       }
       await conn.execute(
@@ -71,6 +71,12 @@ export async function insertMatches(rows: {
 
 export async function deleteMatchesByPhase(phase: 'qualification' | 'playoff'): Promise<void> {
   await getPool().execute('DELETE FROM matches WHERE phase = ?', [phase]);
+}
+
+export async function getMatchById(id: number): Promise<MatchRow | null> {
+  const [rows] = await getPool().execute<MatchRow[]>(
+    'SELECT * FROM matches WHERE id = ?', [id]);
+  return rows[0] ?? null;
 }
 
 /**

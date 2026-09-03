@@ -13,15 +13,15 @@ const pickSchema = z.object({ teamId: z.number().int().positive() });
 const MIN_TEAMS = 9;
 
 function unauthorized() {
-  return NextResponse.json({ error: 'Нет доступа' }, { status: 401 });
+  return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
 }
 
 function notEnoughTeams(rankedCount: number) {
   return NextResponse.json(
     {
       error:
-        `Для трёх альянсов по три команды нужно минимум ${MIN_TEAMS} команд, ` +
-        `сейчас доступно ${rankedCount}`,
+        `Three alliances of three teams need at least ${MIN_TEAMS} teams, ` +
+        `only ${rankedCount} are available`,
     },
     { status: 400 },
   );
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   if (!await requireSessionApi()) return unauthorized();
 
   const parsed = pickSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
 
   const ranked = await rankedTeamIds();
   let state: SelectionState;
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ state: next });
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Ошибка выбора' }, { status: 400 });
+      { error: e instanceof Error ? e.message : 'Pick failed' }, { status: 400 });
   }
 }
 

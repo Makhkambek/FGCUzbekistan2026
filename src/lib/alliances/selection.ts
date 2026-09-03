@@ -6,12 +6,12 @@ export interface AllianceSlot {
 
 export type SelectionState = AllianceSlot[];
 
-/** Порядок выбора «змейкой»: 1→2→3, затем 3→2→1. */
+/** Serpentine pick order: 1→2→3, then 3→2→1. */
 export const PICK_ORDER: number[] = [0, 1, 2, 2, 1, 0];
 
 export function initialSelection(rankedTeamIds: number[]): SelectionState {
   if (rankedTeamIds.length < 9) {
-    throw new Error('Для трёх альянсов по три команды нужно минимум 9 команд');
+    throw new Error('Three alliances of three teams need at least 9 teams');
   }
   return rankedTeamIds.slice(0, 3).map((captain, i) => ({ seed: i + 1, captain, picks: [] }));
 }
@@ -51,20 +51,20 @@ export function applyPick(
   state: SelectionState, rankedTeamIds: number[], pickedTeamId: number,
 ): SelectionState {
   const pickerIndex = nextPicker(state);
-  if (pickerIndex === null) throw new Error('Выбор альянсов уже завершён');
+  if (pickerIndex === null) throw new Error('Alliance selection is already complete');
 
   if (!rankedTeamIds.includes(pickedTeamId)) {
-    throw new Error('Команда не найдена в рейтинге');
+    throw new Error('Team is not in the ranking');
   }
 
   const taken = assignedTeams(state);
   const pickedIsCaptainOf = state.findIndex((a) => a.captain === pickedTeamId);
 
-  // Занятую команду выбрать нельзя. Исключение — капитан НИЖЕСТОЯЩЕГО альянса:
-  // он уходит к вышестоящему, а его капитанство переходит вниз по рейтингу.
+  // A team already taken cannot be picked. The exception is the captain of a
+  // LOWER-seeded alliance: they move up, and the captaincy passes down the ranking.
   const isLowerCaptain = pickedIsCaptainOf > pickerIndex;
   if (taken.has(pickedTeamId) && !isLowerCaptain) {
-    throw new Error('Эта команда уже в альянсе');
+    throw new Error('This team is already in an alliance');
   }
 
   const next: SelectionState = state.map((a) => ({ ...a, picks: [...a.picks] }));
@@ -73,7 +73,7 @@ export function applyPick(
   if (isLowerCaptain) {
     const busy = assignedTeams(next);
     const promoted = rankedTeamIds.find((id) => !busy.has(id));
-    if (promoted === undefined) throw new Error('Нет свободных команд для нового капитана');
+    if (promoted === undefined) throw new Error('No available team is left to take over the captaincy');
     next[pickedIsCaptainOf].captain = promoted;
   }
 

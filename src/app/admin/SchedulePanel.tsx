@@ -17,7 +17,7 @@ export default function SchedulePanel({ matchCount }: { matchCount: number }) {
         body: JSON.stringify({ matchesPerTeam, seed: Math.floor(Math.random() * 1_000_000) }),
       });
       const data = await res.json().catch(() => ({}));
-      setMessage(res.ok ? `Создано матчей: ${data.matches}` : data.error ?? 'Ошибка');
+      setMessage(res.ok ? `Matches created: ${data.matches}` : data.error ?? 'Something went wrong');
       router.refresh();
     } finally {
       setBusy(false);
@@ -26,20 +26,20 @@ export default function SchedulePanel({ matchCount }: { matchCount: number }) {
 
   return (
     <section className="bg-white rounded-lg p-6 space-y-4 border border-gray-200 shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-900">Расписание квалификации ({matchCount} матчей)</h2>
+      <h2 className="text-lg font-semibold text-gray-900">Qualification schedule ({matchCount} matches)</h2>
       <div className="flex items-center gap-2">
-        <label className="text-sm text-gray-500">Матчей на команду</label>
+        <label className="text-sm text-gray-500">Matches per team</label>
         <input type="number" min={1} max={20} value={matchesPerTeam}
           onChange={(e) => setMatchesPerTeam(Number(e.target.value))}
           className="w-20 px-3 py-2 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
         <button onClick={generate} disabled={busy}
           className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
-          {busy ? 'Генерация…' : 'Сгенерировать'}
+          {busy ? 'Generating…' : 'Generate'}
         </button>
       </div>
       {message && <p className="text-sm text-gray-700">{message}</p>}
       <p className="text-xs text-gray-500">
-        Пересоздать расписание можно, только пока ни один матч не сыгран.
+        The schedule can only be regenerated while no match has been played.
       </p>
     </section>
   );

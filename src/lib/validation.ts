@@ -29,4 +29,8 @@ export const scheduleParamsSchema = z.object({
   seed: z.number().int().min(0),
 });
 
+export const displayStartSchema = z.object({
+  matchId: z.number().int().positive(),
+});
+
 export type MatchResultInput = z.infer<typeof matchResultSchema>;

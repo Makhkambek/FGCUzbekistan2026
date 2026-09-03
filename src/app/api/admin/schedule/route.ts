@@ -6,20 +6,20 @@ import { generateSchedule } from '@/lib/schedule/generate';
 import { scheduleParamsSchema } from '@/lib/validation';
 
 export async function POST(req: NextRequest) {
-  if (!await requireSessionApi()) return NextResponse.json({ error: 'Нет доступа' }, { status: 401 });
+  if (!await requireSessionApi()) return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
 
   const parsed = scheduleParamsSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: 'Некорректные параметры' }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
 
   const existing = await listMatches('qualification');
   if (existing.some((m) => m.played)) {
     return NextResponse.json(
-      { error: 'Есть сыгранные матчи — расписание пересоздать нельзя' }, { status: 409 });
+      { error: 'Some matches have been played — the schedule cannot be regenerated' }, { status: 409 });
   }
 
   const teams = await listTeams();
   if (teams.length < 6) {
-    return NextResponse.json({ error: 'Нужно минимум 6 команд' }, { status: 400 });
+    return NextResponse.json({ error: 'At least 6 teams are required' }, { status: 400 });
   }
 
   const schedule = generateSchedule(

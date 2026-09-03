@@ -1,11 +1,11 @@
 import type { AllianceInput, ClimbPosition, MatchInput, MatchScores } from './types';
 
-/** Инкременты множителя в сотых — целые, чтобы не ловить ошибку float. */
+/** Multiplier increments in hundredths — integers, to avoid float error. */
 export const CLIMB_INCREMENT_HUNDREDTHS: Record<ClimbPosition, number> = {
   none: 0, contact: 5, zone1: 10, zone2: 20, zone3: 30,
 };
 
-/** Деление с округлением вверх на целых числах. */
+/** Integer division rounding up. */
 export function ceilDiv(a: number, b: number): number {
   return Math.floor((a + b - 1) / b);
 }

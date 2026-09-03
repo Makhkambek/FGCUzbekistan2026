@@ -14,7 +14,7 @@ async function readPasswordFromStdin(): Promise<string> {
       terminal: process.stdin.isTTY,
     });
 
-    process.stderr.write('Пароль: ');
+    process.stderr.write('Password: ');
 
     if (process.stdin.isTTY) {
       // Interactive mode: suppress echo
@@ -54,14 +54,14 @@ async function readPasswordFromStdin(): Promise<string> {
 async function main() {
   const username = process.argv[2];
   if (!username) {
-    console.error('Использование: npx tsx scripts/create-admin.ts <логин>');
+    console.error('Usage: npx tsx scripts/create-admin.ts <username>');
     process.exit(1);
   }
 
   const password = await readPasswordFromStdin();
 
   if (password.length < 12) {
-    console.error('Пароль должен быть не короче 12 символов');
+    console.error('Password must be at least 12 characters long');
     process.exit(1);
   }
 
@@ -70,11 +70,11 @@ async function main() {
     'INSERT INTO users (username, password_hash) VALUES (?, ?) ' +
     'ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)',
     [username, hash]);
-  console.log(`Пользователь ${username} создан/обновлён`);
+  console.log(`User ${username} created/updated`);
   process.exit(0);
 }
 
 main().catch((err) => {
-  console.error('Ошибка:', err instanceof Error ? err.message : String(err));
+  console.error('Error:', err instanceof Error ? err.message : String(err));
   process.exit(1);
 });

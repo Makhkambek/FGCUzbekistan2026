@@ -12,10 +12,10 @@ interface Match {
 
 export default function StandingsTable() {
   const [data, setData] = useState<{ standings: Standing[]; matches: Match[] } | null>(null);
-  // Опросы каждые 10с не гарантированно приходят по порядку: если предыдущий
-  // запрос задержался, его ответ может прилететь позже свежего и затереть
-  // актуальные данные устаревшими. Монотонный id запроса решает это —
-  // применяем ответ, только если это всё ещё самый последний запущенный запрос.
+  // The 10s polls are not guaranteed to come back in order: a delayed request
+  // can land after a fresher one and overwrite current data with stale data.
+  // A monotonic request id fixes that — apply a response only while it is
+  // still the most recently started request.
   const latestRequestId = useRef(0);
 
   useEffect(() => {
@@ -43,23 +43,23 @@ export default function StandingsTable() {
     };
   }, []);
 
-  if (!data) return <p className="text-gray-400">Загрузка…</p>;
+  if (!data) return <p className="text-gray-400">Loading…</p>;
 
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="text-lg font-semibold mb-3 text-gray-900">Рейтинг команд</h2>
+        <h2 className="text-lg font-semibold mb-3 text-gray-900">Team rankings</h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[320px] border-collapse">
               <thead>
                 <tr>
                   <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 w-8">#</th>
-                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Команда</th>
-                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Рейтинг</th>
-                  <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Матчей</th>
-                  <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Лучший</th>
-                  <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Подавление</th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Team</th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Ranking score</th>
+                  <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Played</th>
+                  <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Best</th>
+                  <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Suppression</th>
                 </tr>
               </thead>
               <tbody className="text-base md:text-lg">
@@ -84,10 +84,10 @@ export default function StandingsTable() {
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold mb-3 text-gray-900">Матчи</h2>
+        <h2 className="text-lg font-semibold mb-3 text-gray-900">Matches</h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
           {data.matches.map((m) => {
-            const phaseLabel = `${m.phase === 'playoff' ? 'ПО' : 'К'}${m.number}`;
+            const phaseLabel = `${m.phase === 'playoff' ? 'P' : 'Q'}${m.number}`;
             const score = m.played
               ? <span className="font-mono text-sm md:text-base lg:text-lg text-gray-900 whitespace-nowrap">{m.redScore} : {m.blueScore}</span>
               : <span className="font-mono text-sm md:text-base lg:text-lg text-gray-400 italic">—</span>;

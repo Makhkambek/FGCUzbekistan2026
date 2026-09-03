@@ -12,7 +12,7 @@ export interface AllianceScore {
   matchesPlayed: number;
 }
 
-/** Round-robin трёх альянсов — Table 6-3 мануала. */
+/** Round robin between the three alliances — Table 6-3 of the manual. */
 export const PLAYOFF_PAIRINGS: PlayoffPairing[] = [
   { matchNumber: 1, redSeed: 1, blueSeed: 3 },
   { matchNumber: 2, redSeed: 3, blueSeed: 2 },

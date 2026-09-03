@@ -6,14 +6,14 @@ import type { ClimbPosition, CardType } from '@/lib/scoring/types';
 import type { MatchRow } from '@/lib/db/matches';
 
 const CLIMBS: { value: ClimbPosition; label: string }[] = [
-  { value: 'none', label: 'нет' }, { value: 'contact', label: 'контакт' },
-  { value: 'zone1', label: 'зона 1' }, { value: 'zone2', label: 'зона 2' },
-  { value: 'zone3', label: 'зона 3' },
+  { value: 'none', label: 'None' }, { value: 'contact', label: 'Contact' },
+  { value: 'zone1', label: 'Zone 1' }, { value: 'zone2', label: 'Zone 2' },
+  { value: 'zone3', label: 'Zone 3' },
 ];
 const CARDS: CardType[] = ['none', 'yellow', 'white', 'red'];
 
-// Пределы значений — те же, что проверяет matchResultSchema на сервере.
-// Ограничиваем ввод здесь, чтобы поле не принимало то, что API всё равно отклонит.
+// The limits below mirror what matchResultSchema enforces on the server.
+// Capping the inputs here keeps a field from accepting what the API would reject.
 const MAX_WILDFIRE = 500; // suppression, extinguisher
 const MAX_PARTNER_CLIMB = 2;
 const MAX_FOULS = 20;
@@ -50,9 +50,11 @@ export default function MatchForm({ match, teamNames }: {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [saveError, setSaveError] = useState('');
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState('');
 
   // Any edit after a save invalidates that save's confirmation — a stale
-  // "✓ Сохранено" next to a value the judge just changed would tell them
+  // "✓ Saved" next to a value the judge just changed would tell them
   // an unsent correction is already safe, which is worse than no indicator.
   function markDirty() {
     setSaveStatus('idle');
@@ -73,7 +75,7 @@ export default function MatchForm({ match, teamNames }: {
     // regeneration. A misclick on an already-played match is just a
     // correction, so re-saves stay frictionless and skip this prompt.
     if (!match.played && !window.confirm(
-      `Матч ${match.match_number} ещё не был сыгран. Сохранить результат и отметить матч как сыгранный?`,
+      `Match ${match.match_number} has not been played yet. Save the result and mark the match as played?`,
     )) {
       return;
     }
@@ -98,13 +100,32 @@ export default function MatchForm({ match, teamNames }: {
       } else {
         const data = await res.json().catch(() => ({}));
         setSaveStatus('error');
-        setSaveError(data.error ?? `Не удалось сохранить (код ${res.status})`);
+        setSaveError(data.error ?? `Could not save (status ${res.status})`);
       }
     } catch {
       setSaveStatus('error');
-      setSaveError('Не удалось сохранить — проверьте соединение и попробуйте ещё раз');
+      setSaveError('Could not save — check the connection and try again');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function startMatch() {
+    setStarting(true);
+    setStartError('');
+    try {
+      const res = await fetch('/api/admin/display/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId: match.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setStartError(data.error ?? `Could not start (status ${res.status})`);
+      }
+    } catch {
+      setStartError('Could not start — check the connection and try again');
+    } finally {
+      setStarting(false);
     }
   }
 
@@ -125,7 +146,7 @@ export default function MatchForm({ match, teamNames }: {
   ) => (
     <div className={`space-y-2 p-4 rounded-md border ${color === 'red' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
       <p className={`text-xs font-semibold uppercase tracking-wide ${color === 'red' ? 'text-red-700' : 'text-blue-700'}`}>
-        {color === 'red' ? 'Красные' : 'Синие'}
+        {color === 'red' ? 'Red' : 'Blue'}
       </p>
       {teams.map((teamId, i) => (
         <div key={teamId} className="flex items-center gap-2">
@@ -156,14 +177,23 @@ export default function MatchForm({ match, teamNames }: {
   return (
     <div className="bg-white rounded-lg p-6 space-y-4 border border-gray-200 shadow-sm">
       <div className="flex items-center gap-3">
-        <h3 className="font-semibold text-gray-900">Матч {match.match_number}</h3>
+        <h3 className="font-semibold text-gray-900">Match {match.match_number}</h3>
         {match.played ? (
           <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
-            Сыграно
+            Played
           </span>
         ) : (
           <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
-            Не сыграно
+            Not played
+          </span>
+        )}
+        <button onClick={startMatch} disabled={starting}
+          className="ml-auto px-3 py-1 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+          {starting ? 'Starting…' : 'Start match'}
+        </button>
+        {startError && (
+          <span className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+            Error: {startError}
           </span>
         )}
       </div>
@@ -174,16 +204,16 @@ export default function MatchForm({ match, teamNames }: {
       </div>
 
       <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
-        <label className="flex justify-between items-center">Suppression красных {num(suppressionRed, setSuppressionRed)}</label>
-        <label className="flex justify-between items-center">Suppression синих {num(suppressionBlue, setSuppressionBlue)}</label>
-        <label className="flex justify-between items-center">Partner climbs красных {num(partnerRed, setPartnerRed, MAX_PARTNER_CLIMB)}</label>
-        <label className="flex justify-between items-center">Partner climbs синих {num(partnerBlue, setPartnerBlue, MAX_PARTNER_CLIMB)}</label>
-        <label className="flex justify-between items-center">Minor фолы красных {num(minorRed, setMinorRed, MAX_FOULS)}</label>
-        <label className="flex justify-between items-center">Minor фолы синих {num(minorBlue, setMinorBlue, MAX_FOULS)}</label>
-        <label className="flex justify-between items-center">Major фолы красных {num(majorRed, setMajorRed, MAX_FOULS)}</label>
-        <label className="flex justify-between items-center">Major фолы синих {num(majorBlue, setMajorBlue, MAX_FOULS)}</label>
+        <label className="flex justify-between items-center">Red suppression {num(suppressionRed, setSuppressionRed)}</label>
+        <label className="flex justify-between items-center">Blue suppression {num(suppressionBlue, setSuppressionBlue)}</label>
+        <label className="flex justify-between items-center">Red partner climbs {num(partnerRed, setPartnerRed, MAX_PARTNER_CLIMB)}</label>
+        <label className="flex justify-between items-center">Blue partner climbs {num(partnerBlue, setPartnerBlue, MAX_PARTNER_CLIMB)}</label>
+        <label className="flex justify-between items-center">Red minor fouls {num(minorRed, setMinorRed, MAX_FOULS)}</label>
+        <label className="flex justify-between items-center">Blue minor fouls {num(minorBlue, setMinorBlue, MAX_FOULS)}</label>
+        <label className="flex justify-between items-center">Red major fouls {num(majorRed, setMajorRed, MAX_FOULS)}</label>
+        <label className="flex justify-between items-center">Blue major fouls {num(majorBlue, setMajorBlue, MAX_FOULS)}</label>
         <label className="flex justify-between items-center col-span-2">
-          Extinguisher (общий) {num(extinguisher, setExtinguisher)}
+          Extinguisher (shared) {num(extinguisher, setExtinguisher)}
         </label>
       </div>
 
@@ -193,22 +223,22 @@ export default function MatchForm({ match, teamNames }: {
           <span className="text-gray-500"> : </span>
           <span className="text-blue-600 font-mono text-lg">{preview.blue}</span>
           <span className="text-gray-500 ml-4">
-            множители {preview.redMultiplier.toFixed(2)} / {preview.blueMultiplier.toFixed(2)} ·
+            multipliers {preview.redMultiplier.toFixed(2)} / {preview.blueMultiplier.toFixed(2)} ·
             coopertition {preview.coopertition}
           </span>
         </div>
         <div className="flex items-center gap-3">
           {saveStatus === 'ok' && (
-            <span className="text-sm text-green-600">✓ Сохранено</span>
+            <span className="text-sm text-green-600">✓ Saved</span>
           )}
           {saveStatus === 'error' && (
             <span className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
-              Ошибка: {saveError}
+              Error: {saveError}
             </span>
           )}
           <button onClick={save} disabled={saving}
             className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
-            {saving ? 'Сохранение…' : 'Сохранить'}
+            {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>

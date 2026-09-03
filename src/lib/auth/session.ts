@@ -6,7 +6,7 @@ const DEFAULT_TTL_MS = 12 * 60 * 60 * 1000;
 function secret(): string {
   const s = process.env.SESSION_SECRET;
   if (!s || s.length < 32) {
-    throw new Error('SESSION_SECRET должен быть задан и быть не короче 32 символов');
+    throw new Error('SESSION_SECRET must be set and at least 32 characters long');
   }
   return s;
 }

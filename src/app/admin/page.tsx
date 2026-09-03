@@ -12,12 +12,12 @@ export default async function AdminPage() {
 
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900 p-8 space-y-6">
-      <h1 className="text-2xl font-bold">Админка FGC Uzbekistan</h1>
+      <h1 className="text-2xl font-bold">FGC Uzbekistan admin</h1>
       <a href="/admin/matches" className="inline-block text-amber-600 hover:text-amber-700">
-        → Результаты матчей
+        → Match results
       </a>
       <a href="/admin/alliances" className="inline-block ml-4 text-amber-600 hover:text-amber-700">
-        → Альянсы и плей-офф
+        → Alliances and playoffs
       </a>
       <TeamsPanel teams={teams.map((t) => ({ id: t.id, name: t.name, region: t.region }))} />
       <SchedulePanel matchCount={matches.length} />

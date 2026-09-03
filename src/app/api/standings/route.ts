@@ -12,10 +12,10 @@ export async function GET() {
   const [teams, rows] = await Promise.all([listTeams(), listMatches()]);
   const names = Object.fromEntries(teams.map((t) => [t.id, t.name]));
 
-  // Считаем очки построчно и изолируем сбои: если один матч не удаётся
-  // просчитать (повреждённые данные и т.п.), остальное табло не должно падать.
-  // Строка исключается и из standings (чтобы не звать ту же вычислительную
-  // функцию повторно на заведомо плохих данных), и получает null-очки в матчах.
+  // Scores are computed row by row with failures isolated: if one match cannot
+  // be scored (corrupt data and the like), the rest of the board must not go down.
+  // Such a row is dropped from the standings (so the same computation is not run
+  // again on data already known to be bad) and gets null scores in the match list.
   const validRows: MatchRow[] = [];
   const scoresById = new Map<number, MatchScores>();
 

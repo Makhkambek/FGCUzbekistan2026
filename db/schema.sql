@@ -57,3 +57,16 @@ CREATE TABLE matches (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uniq_phase_number (phase, match_number)
 ) ENGINE=InnoDB;
+
+-- Single-row table tracking what the public display screen should show.
+-- id is pinned to 1 so there is always exactly one state to read/update.
+CREATE TABLE display_state (
+  id TINYINT PRIMARY KEY DEFAULT 1,
+  phase ENUM('standings','live','result') NOT NULL DEFAULT 'standings',
+  match_id INT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (match_id) REFERENCES matches(id),
+  CONSTRAINT chk_display_state_single_row CHECK (id = 1)
+) ENGINE=InnoDB;
+
+INSERT INTO display_state (id, phase, match_id) VALUES (1, 'standings', NULL);

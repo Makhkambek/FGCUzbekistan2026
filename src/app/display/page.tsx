@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import StandingsTable from '../StandingsTable';
 import FullscreenButton from './FullscreenButton';
+import { PLAYOFF_BACKGROUND, MATCH_BACKGROUND, gridTexture } from '@/lib/brand';
 
 interface AllianceLineup { teams: string[] }
 interface AllianceBreakdown { suppression: number; multiplier: number; partnerClimbPoints: number; penalty: number }
@@ -44,23 +45,6 @@ function useCanvasScale() {
     return () => window.removeEventListener('resize', update);
   }, []);
   return scale;
-}
-
-/** The pink-to-blue broadcast gradient used by the playoff screen. */
-const PLAYOFF_BACKGROUND =
-  'linear-gradient(158deg, oklch(0.58 0.27 348) 0%, oklch(0.63 0.24 356) 26%, '
-  + 'oklch(0.7 0.17 30) 52%, oklch(0.68 0.15 235) 78%, oklch(0.62 0.17 244) 100%)';
-
-const MATCH_BACKGROUND =
-  'linear-gradient(160deg, oklch(0.3 0.03 245) 0%, oklch(0.2 0.025 250) 55%, oklch(0.15 0.02 255) 100%)';
-
-function gridTexture(opacity: number): React.CSSProperties {
-  return {
-    position: 'absolute', inset: 0, pointerEvents: 'none',
-    backgroundImage:
-      `linear-gradient(oklch(1 0 0 / ${opacity}) 1px, transparent 1px), linear-gradient(90deg, oklch(1 0 0 / ${opacity}) 1px, transparent 1px)`,
-    backgroundSize: '96px 96px',
-  };
 }
 
 function matchLabel(phase: 'qualification' | 'playoff', number: number) {

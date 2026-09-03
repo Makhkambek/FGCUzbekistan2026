@@ -195,11 +195,16 @@ export default function DisplayPage() {
     // and the ticker announced it as "next".
     const onScreen = data && data.phase !== 'standings'
       ? { phase: data.matchPhase, number: data.matchNumber } : null;
-    const anyUnplayed = matches
+    const remaining = matches
       .filter((m) => !m.played
         && !(onScreen && m.phase === onScreen.phase && m.number === onScreen.number))
       .sort((a, b) => (a.phase === b.phase ? a.number - b.number : a.phase === 'qualification' ? -1 : 1));
-    return anyUnplayed[0] ?? null;
+    // Once the bracket exists the event has moved on, so a qualification match
+    // left unplayed (a cancelled one, say) must not be announced to the hall as
+    // what is coming up next during the finals.
+    const playoffFirst = remaining.filter((m) => m.phase === 'playoff');
+    if (playoffBracketExists && playoffFirst.length) return playoffFirst[0];
+    return remaining[0] ?? null;
   })();
 
   // matches === null means /api/standings has not answered yet (or is

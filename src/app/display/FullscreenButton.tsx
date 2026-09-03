@@ -43,7 +43,9 @@ export default function FullscreenButton() {
       onClick={toggle}
       aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
       style={{
-        position: 'fixed', bottom: 16, right: 16, zIndex: 9999,
+        // Clear of the ticker line at the bottom of the broadcast canvas,
+        // which carries the next match and the clock.
+        position: 'fixed', bottom: 72, right: 16, zIndex: 9999,
         padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
         background: 'oklch(0 0 0 / 0.55)', color: 'oklch(1 0 0)',
         fontSize: 13, fontWeight: 600,

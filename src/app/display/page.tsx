@@ -183,19 +183,20 @@ export default function DisplayPage() {
   const scale = useCanvasScale();
   const clock = useClock();
 
-  // Three clock layouts, so the choice can be made on the actual projector in
-  // the actual room: the default sits in the header beside the event name,
-  // "?clock=big" takes the title's space on the left, and "?clock=center" puts
-  // the digits down the middle of the field, between the two alliances.
+  // The clock runs down the middle of the field by default — chosen on the
+  // projector in the actual hall, and the only layout whose digits are legible
+  // from the back row. The other two stay reachable for a screen where the
+  // middle is needed for something else: "?clock=header" is the compact plate
+  // beside the event name, "?clock=big" takes the title's space on the left.
   // useSyncExternalStore, not an effect: the server render has no query string,
   // and this is a read of the browser's own state that never changes afterwards.
   const clockVariant = useSyncExternalStore(
     () => () => {},
     () => {
       const v = new URLSearchParams(window.location.search).get('clock');
-      return v === 'big' || v === 'center' ? v : 'header';
+      return v === 'big' || v === 'header' ? v : 'center';
     },
-    () => 'header' as const,
+    () => 'center' as const,
   );
 
   const live = data?.phase === 'live' ? data : null;

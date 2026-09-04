@@ -41,6 +41,8 @@ test:
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run lint
+    # LayoutProps and friends live in .next/types, which a fresh checkout lacks.
+    - npx next typegen
     - npx tsc --noEmit
     - npm test
   rules:

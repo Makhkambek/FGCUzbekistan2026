@@ -1,7 +1,9 @@
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { getPool } from './pool';
-import { skillsAttemptOrder, skillsAttemptScore, skillsStandings } from '../skills/scoring';
-import type { SkillsStanding } from '../skills/scoring';
+import {
+  skillsAttemptOrder, skillsAttemptScore, skillsAttemptsByTeam, skillsStandings,
+} from '../skills/scoring';
+import type { SkillsStanding, TeamAttempt } from '../skills/scoring';
 import type { CardType, ClimbPosition } from '../scoring/types';
 
 export type AllianceColour = 'red' | 'blue';
@@ -134,10 +136,27 @@ export async function resetAttemptResult(id: number): Promise<boolean> {
 
 export async function skillsTable(teamIds: number[]): Promise<SkillsStanding[]> {
   const rows = await listAttempts();
-  return skillsStandings(teamIds, rows.map((r) => ({
+  return skillsStandings(teamIds, scored(rows));
+}
+
+/** The skills table plus each team's own attempts, for the public board. */
+export async function skillsBoard(teamIds: number[]): Promise<{
+  standings: SkillsStanding[];
+  attempts: Record<number, TeamAttempt[]>;
+}> {
+  const rows = await listAttempts();
+  const s = scored(rows);
+  return {
+    standings: skillsStandings(teamIds, s),
+    attempts: skillsAttemptsByTeam(teamIds, s),
+  };
+}
+
+function scored(rows: SkillsAttemptRow[]) {
+  return rows.map((r) => ({
     teamId: r.team_id,
     round: r.round,
     score: attemptScore(r),
     played: !!r.played,
-  })));
+  }));
 }

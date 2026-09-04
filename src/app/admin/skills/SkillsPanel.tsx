@@ -8,10 +8,8 @@ interface Attempt {
   id: number; round: number; teamId: number; teamName: string;
   alliance: 'red' | 'blue'; played: boolean; score: number | null;
 }
-interface TableRow { teamId: number; teamName: string; total: number; best: number; attemptsPlayed: number }
-
-export default function SkillsPanel({ teams, attempts, table }: {
-  teams: Team[]; attempts: Attempt[]; table: TableRow[];
+export default function SkillsPanel({ teams, attempts }: {
+  teams: Team[]; attempts: Attempt[];
 }) {
   const router = useRouter();
   const hasOrder = attempts.length > 0;
@@ -199,35 +197,6 @@ export default function SkillsPanel({ teams, attempts, table }: {
         </div>
       ))}
 
-      {table.some((t) => t.attemptsPlayed > 0) && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-2 text-xs font-black uppercase tracking-widest text-amber-700 bg-amber-50 border-b border-amber-200">
-            Skills standings
-          </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs text-gray-400 uppercase tracking-wide">
-                <th className="text-left px-4 py-2 w-10">#</th>
-                <th className="text-left px-4 py-2">Team</th>
-                <th className="text-right px-4 py-2 w-28">Total</th>
-                <th className="text-right px-4 py-2 w-28">Best</th>
-                <th className="text-right px-4 py-2 w-28">Attempts</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {table.map((t, i) => (
-                <tr key={t.teamId}>
-                  <td className="px-4 py-2 text-gray-400">{i + 1}</td>
-                  <td className="px-4 py-2 font-medium text-gray-900">{t.teamName}</td>
-                  <td className="px-4 py-2 text-right font-mono font-bold">{t.total}</td>
-                  <td className="px-4 py-2 text-right font-mono text-gray-500">{t.best}</td>
-                  <td className="px-4 py-2 text-right font-mono text-gray-500">{t.attemptsPlayed}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }

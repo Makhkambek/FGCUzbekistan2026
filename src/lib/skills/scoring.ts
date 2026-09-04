@@ -107,3 +107,30 @@ export function skillsStandings(teamIds: number[], attempts: ScoredAttempt[]): S
   return standings.sort((a, b) =>
     (b.total - a.total) || (b.best - a.best) || (a.teamId - b.teamId));
 }
+
+export interface TeamAttempt {
+  round: number;
+  /** null until the attempt has actually been taken. */
+  score: number | null;
+  played: boolean;
+}
+
+/**
+ * Every team's attempts, in running order, keyed by team.
+ *
+ * The board shows one team at a time — the hall wants to know how a team's
+ * three tries went, not how the fourteenth attempt of the afternoon went — so
+ * the rounds a team has not reached yet stay in the list with no score rather
+ * than being left out and shortening it.
+ */
+export function skillsAttemptsByTeam(
+  teamIds: number[], attempts: ScoredAttempt[],
+): Record<number, TeamAttempt[]> {
+  return Object.fromEntries(teamIds.map((teamId) => [
+    teamId,
+    attempts
+      .filter((a) => a.teamId === teamId)
+      .sort((a, b) => a.round - b.round)
+      .map((a) => ({ round: a.round, score: a.played ? a.score : null, played: a.played })),
+  ]));
+}

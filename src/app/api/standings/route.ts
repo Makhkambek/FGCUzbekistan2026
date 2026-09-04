@@ -6,7 +6,7 @@ import { getAlliances } from '@/lib/db/alliances';
 import { standingsFromRows, matchScoresForDisplay } from '@/lib/standings';
 import type { MatchScores } from '@/lib/scoring/types';
 import { allianceMatchScore, computeAllianceStandings } from '@/lib/alliances/playoff';
-import { skillsTable } from '@/lib/db/skills';
+import { skillsBoard } from '@/lib/db/skills';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,9 +101,15 @@ export async function GET() {
 
   // The skills table is its own award and never touches the ranking above —
   // it rides along on this response so the public board polls once, not twice.
-  const skills = (await skillsTable(teams.map((t) => t.id)))
+  // Each team carries its own attempts: the board shows one team at a time.
+  const board = await skillsBoard(teams.map((t) => t.id));
+  const skills = board.standings
     .filter((row) => row.attemptsPlayed > 0)
-    .map((row) => ({ ...row, name: names[row.teamId] ?? String(row.teamId) }));
+    .map((row) => ({
+      ...row,
+      name: names[row.teamId] ?? String(row.teamId),
+      attempts: board.attempts[row.teamId] ?? [],
+    }));
 
   return NextResponse.json({ standings, matches, allianceStandings, skills });
 }

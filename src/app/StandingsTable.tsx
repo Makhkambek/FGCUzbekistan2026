@@ -1,13 +1,15 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { matchLabel } from '@/lib/match-label';
 
 interface Standing {
   teamId: number; name: string; rankingScore: number;
   played: number; best: number; suppressionTotal: number;
 }
+interface SkillsAttempt { round: number; score: number | null; played: boolean }
 interface SkillsRow {
   teamId: number; name: string; total: number; best: number; attemptsPlayed: number;
+  attempts: SkillsAttempt[];
 }
 interface Match {
   id: number; number: number; phase: string; played: boolean;
@@ -73,6 +75,10 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
 export default function StandingsTable() {
   const [data, setData] = useState<{ standings: Standing[]; matches: Match[]; skills?: SkillsRow[] } | null>(null);
   const [view, setView] = useState<'standings' | 'matches' | 'finals' | 'skills'>('standings');
+  // Which team's attempts are open on the skills tab. One at a time: the point
+  // of the tab is to look at a team, and three teams unfolded at once is the
+  // long list the tab exists to avoid.
+  const [openTeam, setOpenTeam] = useState<number | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [query, setQuery] = useState('');
   // The 10s polls are not guaranteed to come back in order: a delayed request
@@ -226,15 +232,56 @@ export default function StandingsTable() {
               </tr>
             </thead>
             <tbody className="text-base md:text-lg">
-              {skills.map((s, i) => (
-                <tr key={s.teamId} className="hover:bg-gray-50 border-b border-gray-100 last:border-0">
-                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-gray-400 w-8">{i + 1}</td>
-                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-emerald-700 font-medium">{s.name}</td>
-                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-right"><strong className="font-mono">{s.total}</strong></td>
-                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right font-mono text-gray-500">{s.best}</td>
-                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right font-mono text-gray-500">{s.attemptsPlayed}</td>
-                </tr>
-              ))}
+              {skills.map((s, i) => {
+                const open = openTeam === s.teamId;
+                return (
+                  <React.Fragment key={s.teamId}>
+                    <tr
+                      onClick={() => setOpenTeam(open ? null : s.teamId)}
+                      aria-expanded={open}
+                      className={`cursor-pointer border-b border-gray-100 last:border-0 ${
+                        open ? 'bg-emerald-50' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <td className="px-2 sm:px-6 py-2 sm:py-3 text-gray-400 w-8">{i + 1}</td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-3 text-emerald-700 font-medium">
+                        <span className={`inline-block mr-2 text-xs text-emerald-500 transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
+                        {s.name}
+                      </td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-3 text-right"><strong className="font-mono">{s.total}</strong></td>
+                      <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right font-mono text-gray-500">{s.best}</td>
+                      <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right font-mono text-gray-500">{s.attemptsPlayed}</td>
+                    </tr>
+                    {open && (
+                      <tr className="border-b border-gray-100 last:border-0">
+                        <td colSpan={5} className="px-2 sm:px-6 py-3 bg-emerald-50/60">
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            {s.attempts.map((a) => (
+                              <div key={a.round} className="flex items-baseline justify-between gap-3 px-3 py-2 rounded-lg bg-white border border-emerald-100">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                  Attempt {a.round}
+                                </span>
+                                <span className={`font-mono ${a.played ? 'font-bold text-gray-900' : 'text-gray-300'}`}>
+                                  {a.played ? a.score : '—'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          {/* A team is not finished until its last attempt is
+                              scored, and the sum above says nothing about how
+                              many are still to come. */}
+                          {s.attempts.some((a) => !a.played) && (
+                            <p className="mt-2 text-xs text-gray-500">
+                              {s.attempts.filter((a) => !a.played).length} attempt
+                              {s.attempts.filter((a) => !a.played).length === 1 ? '' : 's'} still to come
+                            </p>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

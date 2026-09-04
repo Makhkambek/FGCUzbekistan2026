@@ -3,6 +3,7 @@ import {
   ceilDiv, climbMultiplierHundredths, coopertitionBonus,
   alliancePreScore, computeMatchScores,
 } from '@/lib/scoring/match';
+import type { ClimbPosition } from '@/lib/scoring/types';
 import type { AllianceInput } from '@/lib/scoring/types';
 
 const alliance = (over: Partial<AllianceInput> = {}): AllianceInput => ({
@@ -25,7 +26,8 @@ describe('climbMultiplierHundredths', () => {
 });
 
 describe('coopertitionBonus', () => {
-  const z = (n: number) => Array.from({ length: 6 }, (_, i) => (i < n ? 'zone3' : 'none')) as any;
+  const z = (n: number): ClimbPosition[] =>
+    Array.from({ length: 6 }, (_, i) => (i < n ? 'zone3' : 'none'));
   it('меньше четырёх — ноль', () => expect(coopertitionBonus(z(3))).toBe(0));
   it('четыре — 10', () => expect(coopertitionBonus(z(4))).toBe(10));
   it('пять — 25', () => expect(coopertitionBonus(z(5))).toBe(25));

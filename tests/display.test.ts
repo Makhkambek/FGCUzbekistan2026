@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { buildDisplayPayload } from '@/lib/display';
+import type { MatchRow } from '@/lib/db/matches';
 
-const row = (over: Partial<any> = {}) => ({
+const row = (over: Partial<Omit<MatchRow, 'constructor'>> = {}) => ({
   id: 1, match_number: 3, phase: 'qualification',
   red_alliance_id: null, blue_alliance_id: null,
   red1_id: 1, red2_id: 2, red3_id: 3, blue1_id: 4, blue2_id: 5, blue3_id: 6,
@@ -14,7 +15,7 @@ const row = (over: Partial<any> = {}) => ({
   card_red1: 'none', card_red2: 'none', card_red3: 'none',
   card_blue1: 'none', card_blue2: 'none', card_blue3: 'none',
   ...over,
-}) as any;
+}) as unknown as MatchRow;
 
 const teamNames = { 1: 'Alpha', 2: 'Bravo', 3: 'Charlie', 4: 'Delta', 5: 'Echo', 6: 'Foxtrot' };
 
@@ -125,7 +126,7 @@ describe('buildDisplayPayload — красная карточка в плей-о
   // ALLIANCE receives 0 points for that specific MATCH». Таблица альянсов
   // это учитывала, а экран проектора показывал сырой счёт — зал и таблица
   // противоречили друг другу и победитель объявлялся неверно.
-  const playoffRow = (over: Partial<any> = {}) => row({
+  const playoffRow = (over: Partial<Omit<MatchRow, 'constructor'>> = {}) => row({
     phase: 'playoff', played: 1, red_alliance_id: 1, blue_alliance_id: 3,
     suppression_red: 200, suppression_blue: 150, ...over,
   });

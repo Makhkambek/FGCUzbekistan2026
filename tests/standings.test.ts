@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { matchRowToInput, standingsFromRows } from '@/lib/standings';
+import type { MatchRow } from '@/lib/db/matches';
 
-const row = (over: Partial<any> = {}) => ({
+const row = (over: Partial<Omit<MatchRow, 'constructor'>> = {}) => ({
   id: 1, match_number: 1, phase: 'qualification',
   red_alliance_id: null, blue_alliance_id: null,
   red1_id: 1, red2_id: 2, red3_id: 3, blue1_id: 4, blue2_id: 5, blue3_id: 6,
@@ -14,7 +15,7 @@ const row = (over: Partial<any> = {}) => ({
   card_red1: 'none', card_red2: 'none', card_red3: 'none',
   card_blue1: 'none', card_blue2: 'none', card_blue3: 'none',
   ...over,
-}) as any;
+}) as unknown as MatchRow;
 
 describe('matchRowToInput', () => {
   it('переносит поля строки БД в вход подсчёта', () => {

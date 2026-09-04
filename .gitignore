@@ -48,3 +48,6 @@ node_modules
 .superpowers/
 backups/
 *.key
+
+# GitLab CI npm cache
+.npm/

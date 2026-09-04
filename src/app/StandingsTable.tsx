@@ -60,9 +60,6 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
             <div key={m.id} className={`px-3 py-2.5 ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : ''}`}>
               <div className={`font-medium ${!m.played ? 'text-gray-500' : redWins ? 'text-red-600' : blueWins ? 'text-blue-600' : 'text-emerald-600'} ${roomy ? 'text-lg' : 'text-sm'}`}>
                 {phaseLabel}
-                {m.played && !redWins && !blueWins && (
-                  <span className="ml-2 text-[10px] font-sans uppercase tracking-wider text-emerald-600">tie</span>
-                )}
               </div>
               <div className="mt-1.5 flex items-baseline gap-2 rounded bg-red-50 px-2 py-1">
                 <span className={`grow text-red-700 text-sm ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
@@ -93,32 +90,39 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
               const phaseLabel = longMatchLabel(m.phase, m.number);
               const redWins = m.played && m.redScore !== null && m.blueScore !== null && m.redScore > m.blueScore;
               const blueWins = m.played && m.redScore !== null && m.blueScore !== null && m.blueScore > m.redScore;
-              const tie = m.played && m.redScore !== null && m.redScore === m.blueScore;
               const hit = isHit(m);
               const labelColour = !m.played ? 'text-gray-500'
                 : redWins ? 'text-red-600' : blueWins ? 'text-blue-600' : 'text-emerald-600';
               return (
                 <tr key={m.id} className={`${roomy ? '[&>td]:py-7 sm:[&>td]:py-12' : ''} ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : ''}`}>
-                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap w-44 sm:w-56">
+                  <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap w-44 sm:w-56">
+                    {/* No "tie" caption: on their page a drawn match says so
+                        by turning the label green, and nothing else. */}
                     <span className={`font-medium ${labelColour} ${roomy ? 'text-lg sm:text-2xl' : 'text-sm'}`}>
                       {phaseLabel}
                     </span>
-                    {tie && <span className="ml-2 text-[10px] uppercase tracking-wider text-emerald-600">tie</span>}
                   </td>
-                  <td className={`px-3 sm:px-4 py-2 sm:py-2.5 ${hit ? '' : 'bg-red-50/70'}`}>
-                    <span className={`text-red-700 ${roomy ? 'text-base sm:text-xl' : 'text-xs sm:text-sm'} ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
-                  </td>
-                  <td className={`px-3 sm:px-4 py-2 sm:py-2.5 ${hit ? '' : 'bg-blue-50/70'}`}>
-                    <span className={`text-blue-700 ${roomy ? 'text-base sm:text-xl' : 'text-xs sm:text-sm'} ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
-                  </td>
-                  <td className={`px-2 sm:px-3 py-2 sm:py-2.5 text-right w-14 sm:w-20 ${hit ? '' : 'bg-red-100/70'}`}>
+                  {/* One cell per team rather than a "a · b · c" string: the
+                      three names line up down the list the way theirs do, so a
+                      team can be found by running the eye down one column. */}
+                  {m.red.map((name, i) => (
+                    <td key={`r${i}`} className={`px-2 sm:px-3 py-2 sm:py-3 ${hit ? '' : 'bg-red-50'}`}>
+                      <span className={`text-red-700 ${roomy ? 'text-base sm:text-xl' : 'text-sm'} ${redWins ? 'font-bold' : 'font-normal'}`}>{name}</span>
+                    </td>
+                  ))}
+                  {m.blue.map((name, i) => (
+                    <td key={`b${i}`} className={`px-2 sm:px-3 py-2 sm:py-3 ${hit ? '' : 'bg-blue-50'}`}>
+                      <span className={`text-blue-700 ${roomy ? 'text-base sm:text-xl' : 'text-sm'} ${blueWins ? 'font-bold' : 'font-normal'}`}>{name}</span>
+                    </td>
+                  ))}
+                  <td className={`px-2 sm:px-4 py-2 sm:py-3 text-right w-16 sm:w-24 ${hit ? '' : 'bg-red-100'}`}>
                     {m.played
-                      ? <span className={`font-mono text-red-900 ${redWins ? 'font-black' : 'font-medium'} ${roomy ? 'text-xl sm:text-3xl' : 'text-xs sm:text-sm'}`}>{m.redScore}</span>
+                      ? <span className={`text-gray-900 ${redWins ? 'font-bold' : 'font-normal'} ${roomy ? 'text-xl sm:text-3xl' : 'text-sm'}`}>{m.redScore}</span>
                       : <span className="text-red-300">—</span>}
                   </td>
-                  <td className={`px-2 sm:px-3 py-2 sm:py-2.5 text-right w-14 sm:w-20 ${hit ? '' : 'bg-blue-100/70'}`}>
+                  <td className={`px-2 sm:px-4 py-2 sm:py-3 text-right w-16 sm:w-24 ${hit ? '' : 'bg-blue-100'}`}>
                     {m.played
-                      ? <span className={`font-mono text-blue-900 ${blueWins ? 'font-black' : 'font-medium'} ${roomy ? 'text-xl sm:text-3xl' : 'text-xs sm:text-sm'}`}>{m.blueScore}</span>
+                      ? <span className={`text-gray-900 ${blueWins ? 'font-bold' : 'font-normal'} ${roomy ? 'text-xl sm:text-3xl' : 'text-sm'}`}>{m.blueScore}</span>
                       : <span className="text-blue-300">—</span>}
                   </td>
                 </tr>

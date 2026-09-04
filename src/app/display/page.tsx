@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useSyncExternalStore } from 'react';
 import StandingsTable from '../StandingsTable';
 import { pickNextMatch } from '@/lib/next-match';
 import FullscreenButton from './FullscreenButton';
-import { BROADCAST_BACKGROUND, gridTexture } from '@/lib/brand';
+import { EVENT_BACKGROUND, gridTexture } from '@/lib/brand';
 import { matchClock, type ClockPeriod } from '@/lib/match-clock';
 import { matchLabel } from '@/lib/match-label';
 
@@ -312,7 +312,7 @@ export default function DisplayPage() {
       // Same broadcast gradient as the playoff screen: the qualification
       // rankings are on the projector between every match, and flat grey next
       // to the other two screens looked like a page that had failed to load.
-      <div style={{ minHeight: '100vh', background: BROADCAST_BACKGROUND, position: 'relative' }}>
+      <div style={{ minHeight: '100vh', background: EVENT_BACKGROUND, position: 'relative' }}>
         <div style={{ ...gridTexture(0.05), position: 'fixed' }} />
         <FullscreenButton />
         <header style={{ position: 'relative', padding: '26px 48px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 32 }}>
@@ -322,7 +322,7 @@ export default function DisplayPage() {
             </div>
             <div style={{
               fontFamily: F_HEAD, fontWeight: 700, fontSize: 62, lineHeight: 0.9, letterSpacing: '0.04em',
-              textTransform: 'uppercase', color: 'oklch(1 0 0)', textShadow: 'oklch(0.18 0.05 250 / 0.6) 0px 4px 24px',
+              textTransform: 'uppercase', color: 'oklch(1 0 0)', textShadow: 'oklch(0.25 0.08 340 / 0.5) 0px 4px 24px',
             }}>
               Qualification
             </div>
@@ -391,7 +391,7 @@ export default function DisplayPage() {
         padding: '40px 60px 34px', color: 'oklch(1 0 0)', fontFamily: F_SANS,
         // One gradient for every broadcast screen — the match screen used to
         // be dark navy, which made it look like a different event.
-        background: BROADCAST_BACKGROUND,
+        background: EVENT_BACKGROUND,
       }}>
         <div style={gridTexture(0.05)} />
 
@@ -948,7 +948,7 @@ function PlayoffScreen({ standings, nextMatchLabel, clock }: {
         </div>
         <div style={{
           fontFamily: F_HEAD, fontWeight: 700, fontSize: 74, lineHeight: 0.9, letterSpacing: '0.04em', textTransform: 'uppercase',
-          marginTop: 6, textShadow: 'oklch(0.18 0.05 250 / 0.6) 0px 4px 24px',
+          marginTop: 6, textShadow: 'oklch(0.25 0.08 340 / 0.5) 0px 4px 24px',
         }}>
           Playoffs
         </div>
@@ -980,13 +980,13 @@ function PlayoffScreen({ standings, nextMatchLabel, clock }: {
       }}>
         <div style={{
           display: 'grid', gridTemplateColumns: '150px repeat(3, 1fr) 210px', alignItems: 'stretch',
-          background: 'oklch(0.24 0.06 255)', borderBottom: '2px solid oklch(1 0 0 / 0.6)',
+          background: 'oklch(0.2 0.04 320)', borderBottom: '2px solid oklch(1 0 0 / 0.6)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18px 0', fontFamily: F_MONO, fontSize: 21, fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.9)' }}>
             Rank
           </div>
           <div style={{ gridColumn: 'span 3', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '8px 0 4px', textAlign: 'center', fontFamily: F_MONO, fontSize: 19, letterSpacing: '0.26em', textTransform: 'uppercase', color: 'oklch(0.85 0.1 245)' }}>
+            <div style={{ padding: '8px 0 4px', textAlign: 'center', fontFamily: F_MONO, fontSize: 19, letterSpacing: '0.26em', textTransform: 'uppercase', color: 'oklch(0.9 0.1 350)' }}>
               Alliance
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
@@ -1016,7 +1016,7 @@ function PlayoffScreen({ standings, nextMatchLabel, clock }: {
             }}>
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'oklch(0.72 0.16 250 / 0.28)',
+                background: 'oklch(0.78 0.18 350 / 0.28)',
                 color: 'oklch(0.2 0.02 250)', fontFamily: F_HEAD, fontWeight: 700, fontSize: 52, lineHeight: 1,
                 flexDirection: 'column', gap: 2,
               }}>

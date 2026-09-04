@@ -2,6 +2,7 @@ import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { getPool } from './pool';
 import {
   skillsAttemptOrder, skillsAttemptScore, skillsAttemptsByTeam, skillsStandings,
+  skillsTeamIds,
 } from '../skills/scoring';
 import type { SkillsStanding, TeamAttempt } from '../skills/scoring';
 import type { CardType, ClimbPosition } from '../scoring/types';
@@ -139,13 +140,19 @@ export async function skillsTable(teamIds: number[]): Promise<SkillsStanding[]> 
   return skillsStandings(teamIds, scored(rows));
 }
 
-/** The skills table plus each team's own attempts, for the public board. */
-export async function skillsBoard(teamIds: number[]): Promise<{
+/**
+ * The skills table plus each team's own attempts, for the public board.
+ *
+ * The teams are whoever is in the running order — not every team at the
+ * event, and not only the ones who have already run.
+ */
+export async function skillsBoard(): Promise<{
   standings: SkillsStanding[];
   attempts: Record<number, TeamAttempt[]>;
 }> {
   const rows = await listAttempts();
   const s = scored(rows);
+  const teamIds = skillsTeamIds(s);
   return {
     standings: skillsStandings(teamIds, s),
     attempts: skillsAttemptsByTeam(teamIds, s),

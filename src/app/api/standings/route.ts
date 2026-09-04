@@ -102,9 +102,11 @@ export async function GET() {
   // The skills table is its own award and never touches the ranking above —
   // it rides along on this response so the public board polls once, not twice.
   // Each team carries its own attempts: the board shows one team at a time.
-  const board = await skillsBoard(teams.map((t) => t.id));
+  // Everyone in the running order is listed from the moment the order is
+  // built, on nil points until they run — the hall reads this table to find
+  // out who is up, not only who is done.
+  const board = await skillsBoard();
   const skills = board.standings
-    .filter((row) => row.attemptsPlayed > 0)
     .map((row) => ({
       ...row,
       name: names[row.teamId] ?? String(row.teamId),

@@ -134,3 +134,16 @@ export function skillsAttemptsByTeam(
       .map((a) => ({ round: a.round, score: a.played ? a.score : null, played: a.played })),
   ]));
 }
+
+/**
+ * The teams in the running order, each named once, in the order the operator
+ * built.
+ *
+ * The board lists a team from the moment it is picked, on nil points until it
+ * takes its first attempt: the hall wants to know who is due to run, and a
+ * table that fills up one team at a time hides the running order from
+ * everyone standing in front of it.
+ */
+export function skillsTeamIds(attempts: ScoredAttempt[]): number[] {
+  return [...new Set(attempts.map((a) => a.teamId))];
+}

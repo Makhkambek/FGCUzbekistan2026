@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { isPickable, isPoach, clearPick } from '@/lib/alliances/selection';
+import { isPickable, clearPick } from '@/lib/alliances/selection';
 import type { SelectionState } from '@/lib/alliances/selection';
 
 interface PlayoffStatus { matches: number; played: number }
@@ -60,14 +60,6 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
 
   async function pick(allianceSeed: number, slotIndex: 0 | 1, teamId: number) {
     if (!state) return;
-    if (isPoach(state, allianceSeed, teamId)) {
-      const from = state.find((a) => a.captain === teamId)!;
-      const ok = window.confirm(
-        `${teamNames[teamId] ?? teamId} is the captain of Alliance ${from.seed}. ` +
-        `Poach them into Alliance ${allianceSeed}? The next available team by ranking becomes the new captain of Alliance ${from.seed}.`,
-      );
-      if (!ok) return;
-    }
     setError('');
     setAction('pick');
     setBusy(true);
@@ -232,15 +224,9 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
                       className="w-full px-2 py-1.5 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:opacity-50"
                     >
                       <option value="">— choose a team —</option>
-                      {available.map((id) => {
-                        const poach = isPoach(hypothetical, a.seed, id);
-                        const poachedFrom = poach ? state.find((x) => x.captain === id)!.seed : null;
-                        return (
-                          <option key={id} value={id}>
-                            {teamNames[id] ?? id}{poachedFrom !== null ? ` — captain of Alliance ${poachedFrom}` : ''}
-                          </option>
-                        );
-                      })}
+                      {available.map((id) => (
+                        <option key={id} value={id}>{teamNames[id] ?? id}</option>
+                      ))}
                     </select>
                   </label>
                 );

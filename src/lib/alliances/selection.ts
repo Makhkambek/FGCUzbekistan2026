@@ -40,25 +40,20 @@ function assignedTeams(state: SelectionState): Set<number> {
 }
 
 /**
- * True if `teamId` may be placed into `allianceSeed`'s picks right now: not
- * already assigned anywhere (as a captain or a pick), UNLESS it is the
- * captain of a LOWER-seeded alliance (a strictly higher seed number) — that
- * remains a legal poach, reported separately by `isPoach`.
+ * True if `teamId` may be placed into `allianceSeed`'s picks right now: only a
+ * team that is not already in an alliance at all, as a captain or as a pick.
  *
- * There is no turn order any more: any alliance may be filled in any order,
- * and any of its two pick slots may be set independently of the other.
+ * Captains are off the board. FIRST allows a higher-seeded alliance to poach a
+ * lower-seeded captain, and this used to implement it — but at this event the
+ * draft is run by one operator in front of the hall, and a pick that dissolves
+ * another alliance mid-ceremony is a way to confuse everyone at once for no
+ * gain across three alliances. The decision is Makhkambek's, 4 September 2026.
+ *
+ * There is no turn order: any alliance may be filled in any order, and either
+ * of its two pick slots may be set independently of the other.
  */
 export function isPickable(state: SelectionState, allianceSeed: number, teamId: number): boolean {
-  const taken = assignedTeams(state);
-  const captainAlliance = state.find((a) => a.captain === teamId);
-  const isLowerCaptain = captainAlliance !== undefined && captainAlliance.seed > allianceSeed;
-  return !taken.has(teamId) || isLowerCaptain;
-}
-
-/** True if picking `teamId` into `allianceSeed` would poach a captain — the caller must get operator confirmation before calling `setPick` for this pair. */
-export function isPoach(state: SelectionState, allianceSeed: number, teamId: number): boolean {
-  const captainAlliance = state.find((a) => a.captain === teamId);
-  return captainAlliance !== undefined && captainAlliance.seed > allianceSeed;
+  return !assignedTeams(state).has(teamId);
 }
 
 /**
@@ -66,10 +61,7 @@ export function isPoach(state: SelectionState, allianceSeed: number, teamId: num
  * every other slot — including re-setting an already-filled slot to a
  * different team, or back to what it already held (a no-op in that case).
  *
- * Poaching a lower-seeded alliance's captain promotes the next available
- * team by ranking into the vacated captaincy, same rule as before — the
- * caller (the route) is expected to have already gotten operator
- * confirmation via `isPoach` before calling this for a poaching pick.
+ * A team already seated anywhere, captain or pick, is refused: see isPickable.
  */
 export function setPick(
   state: SelectionState, rankedTeamIds: number[],
@@ -87,28 +79,13 @@ export function setPick(
   if (!isPickable(asIfEmpty, allianceSeed, teamId)) {
     throw new Error('This team is already in an alliance');
   }
-  const poach = isPoach(asIfEmpty, allianceSeed, teamId);
 
   const next: SelectionState = asIfEmpty.map((a) => ({ ...a, picks: [...a.picks] as [PickSlot, PickSlot] }));
   next.find((a) => a.seed === allianceSeed)!.picks[slotIndex] = teamId;
-
-  if (poach) {
-    const poachedAlliance = next.find((a) => a.captain === teamId)!;
-    const busy = assignedTeams(next);
-    const promoted = rankedTeamIds.find((id) => !busy.has(id));
-    if (promoted === undefined) throw new Error('No available team is left to take over the captaincy');
-    poachedAlliance.captain = promoted;
-  }
-
   return next;
 }
 
-/**
- * Empties one pick slot. Does NOT undo a captaincy promotion that happened
- * because that slot held a poached captain — reversing a poach is a
- * separate, deliberate action the operator has to do by hand (or by using
- * the full "Reset alliance selection").
- */
+/** Empties one pick slot; the team returns to the pool for every alliance. */
 export function clearPick(state: SelectionState, allianceSeed: number, slotIndex: 0 | 1): SelectionState {
   const alliance = state.find((a) => a.seed === allianceSeed);
   if (!alliance) throw new Error('No such alliance');

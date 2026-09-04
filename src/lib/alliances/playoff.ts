@@ -59,3 +59,21 @@ export function computeAllianceStandings(
   }
   return [...totals.values()].sort((a, b) => b.total - a.total || a.seed - b.seed);
 }
+
+/**
+ * Whether the playoff is finished — the bracket exists and every match in it
+ * has been played.
+ *
+ * The skills award is the last thing the event does, and its table must not
+ * appear on the public board before the finals are decided: a second table of
+ * numbers beside the bracket splits the hall's attention at the one moment
+ * the tournament has been building towards.
+ *
+ * A bracket that does not exist yet is not a finished one, and qualification
+ * matches have no say here — one left unscored by mistake cannot hold the
+ * award back once the finals themselves are done.
+ */
+export function finalsAreOver(matches: { phase: string; played: boolean }[]): boolean {
+  const playoff = matches.filter((m) => m.phase === 'playoff');
+  return playoff.length > 0 && playoff.every((m) => m.played);
+}

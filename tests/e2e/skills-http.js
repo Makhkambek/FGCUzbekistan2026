@@ -174,7 +174,7 @@ function expected({ suppression = 0, humanBalls = 0, climb = 'none', extinguishe
   eq('so is how many were taken', pub.skills.map((s) => s.attemptsPlayed), wantRows.map((r) => r.played));
   check('the table is sorted by total, highest first',
     pub.skills.every((s, i, arr) => i === 0 || arr[i - 1].total >= s.total), JSON.stringify(pub.skills.map((s) => s.total)));
-  const opened = pub.skills[0];
+  const opened = pub.skills[0] ?? { attempts: [], teamId: null };
   eq('opening a team shows all three of its attempts', opened.attempts.length, 3);
   eq('its rounds are in running order', opened.attempts.map((a) => a.round), [1, 2, 3]);
   check('an attempt not yet taken carries no score',
@@ -183,7 +183,18 @@ function expected({ suppression = 0, humanBalls = 0, climb = 'none', extinguishe
     opened.attempts.filter((a) => a.played).map((a) => a.score),
     Object.values(scored).filter((s) => s.teamId === opened.teamId).sort((a, b) => a.round - b.round).map((s) => s.score));
 
-  console.log('\n== 9. Skills does not touch the qualification ranking ==');
+  console.log('\n== 9. The board holds skills back until the finals are decided ==');
+  const playoff = pub.matches.filter((m) => m.phase === 'playoff');
+  const finalsOver = playoff.length > 0 && playoff.every((m) => m.played);
+  console.log(`  (${playoff.length} playoff matches, ${playoff.filter((m) => m.played).length} played)`);
+  if (finalsOver) {
+    check('with the finals decided, the skills table is published', pub.skills.length > 0, 'skills is empty');
+  } else {
+    eq('until the finals are decided the board carries no skills at all', pub.skills, []);
+    console.log('  (score the bracket and run again to see the other half of this rule)');
+  }
+
+  console.log('\n== 10. Skills does not touch the qualification ranking ==');
   const before = JSON.parse(fs.readFileSync(DIR + '/fgc-standings-before.json', 'utf8'));
   eq('the ranking is the same team order as before the skills phase',
     pub.standings.map((s) => s.teamId), before.standings.map((s) => s.teamId));
@@ -191,13 +202,13 @@ function expected({ suppression = 0, humanBalls = 0, climb = 'none', extinguishe
     pub.standings.map((s) => s.rankingScore), before.standings.map((s) => s.rankingScore));
   eq('the matches are untouched', pub.matches.length, before.matches.length);
 
-  console.log('\n== 10. The order is locked once anything is scored ==');
+  console.log('\n== 11. The order is locked once anything is scored ==');
   const rebuild = await api('POST', '/api/admin/skills', { teamIds: picked, attemptsPerTeam: 3, alliance: 'red' });
   eq('rebuilding is refused', rebuild.status, 409);
   eq('and says why', /already been scored/.test(rebuild.json.error ?? ''), true);
   eq('the order survived the attempt', (await api('GET', '/api/admin/skills')).json.attempts.length, 12);
 
-  console.log('\n== 11. Clearing a result ==');
+  console.log('\n== 12. Clearing a result ==');
   const clearId = Number(Object.keys(scored)[0]);
   eq('a scored attempt can be cleared', (await api('DELETE', `/api/admin/skills/${clearId}`)).status, 200);
   const after = (await api('GET', '/api/admin/skills')).json.attempts.find((a) => a.id === clearId);
@@ -206,7 +217,7 @@ function expected({ suppression = 0, humanBalls = 0, climb = 'none', extinguishe
   d = (await api('GET', '/api/display/state')).json;
   eq('the projector stops showing what no longer has a score', d.phase, 'standings');
 
-  console.log('\n== 12. With every result cleared, the order can be rebuilt ==');
+  console.log('\n== 13. With every result cleared, the order can be rebuilt ==');
   for (const id of Object.keys(scored)) await api('DELETE', `/api/admin/skills/${id}`);
   const rebuilt = await api('POST', '/api/admin/skills', { teamIds: picked.slice(0, 2), attemptsPerTeam: 5, alliance: 'blue' });
   eq('two teams × five attempts is ten', rebuilt.json, { ok: true, attempts: 10 });

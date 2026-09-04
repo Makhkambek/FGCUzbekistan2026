@@ -79,6 +79,13 @@ export default function MatchForm({ match, teamNames }: {
   });
 
   async function save() {
+    // The Save button is disabled while a request is in flight, but Enter in
+    // any number field calls this directly and never looks at the button. Two
+    // overlapping PUTs then race, and the one that lands last wins — a
+    // referee correcting a score could watch the older values win while
+    // "✓ Saved" claimed the correction had gone through.
+    if (saving || resetting) return;
+
     // Saving an unplayed match is the irreversible transition — it records a
     // real result for six teams and, from then on, blocks schedule/playoff
     // regeneration. A misclick on an already-played match is just a
@@ -120,6 +127,7 @@ export default function MatchForm({ match, teamNames }: {
   }
 
   async function reset() {
+    if (saving || resetting) return;
     if (!window.confirm(
       `Clear the entered result for match ${match.match_number} and mark it as not played?`,
     )) return;

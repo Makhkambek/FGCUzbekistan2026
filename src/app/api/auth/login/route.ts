@@ -5,6 +5,7 @@ import { findUserByUsername } from '@/lib/db/users';
 import { verifyPassword } from '@/lib/auth/password';
 import { signSession, SESSION_COOKIE, DEFAULT_TTL_HOURS } from '@/lib/auth/session';
 import { checkRateLimit, recordFailure, resetRateLimit } from '@/lib/auth/rate-limit';
+import { normalizeLoginKey, rateLimitKeyForUserId } from '@/lib/auth/login-key';
 
 const schema = z.object({ username: z.string().min(1).max(64), password: z.string().min(1).max(200) });
 
@@ -18,8 +19,13 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync('fgc-scoring-timing-safety-dummy', 1
 // attacker can forge a fresh one on every request). Key on the attempted
 // username instead — it protects each account without letting one judge's
 // typo lock out everyone else.
+// The username here is only the first gate. MySQL compares it under
+// utf8mb4_unicode_ci, so 'admin' and 'ádmin' are the same row but were two
+// different keys — five fresh attempts per spelling, and the lockout never
+// fired. normalizeLoginKey folds what it can; the real counter, once the row
+// is known, is keyed on its id below.
 function rateLimitKey(parsed: ReturnType<typeof schema.safeParse>): string {
-  return parsed.success ? parsed.data.username.toLowerCase() : '<malformed>';
+  return parsed.success ? normalizeLoginKey(parsed.data.username) : '<malformed>';
 }
 
 function isHttps(req: NextRequest): boolean {
@@ -44,12 +50,23 @@ export async function POST(req: NextRequest) {
   }
 
   const user = await findUserByUsername(parsed.data.username);
+
+  // An account that exists is counted by id — the one thing the database
+  // actually matched on, and the only key no spelling can split in two.
+  const accountKey = user ? rateLimitKeyForUserId(user.id) : key;
+  if (user && !checkRateLimit(accountKey).allowed) {
+    return NextResponse.json(
+      { error: 'Too many attempts. Try again later.' }, { status: 429 });
+  }
+
   const ok = await verifyPassword(parsed.data.password, user ? user.password_hash : DUMMY_PASSWORD_HASH);
   if (!user || !ok) {
-    recordFailure(key);
+    recordFailure(accountKey);
+    if (accountKey !== key) recordFailure(key);
     return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
   }
 
+  resetRateLimit(accountKey);
   resetRateLimit(key);
   const res = NextResponse.json({ ok: true });
   res.cookies.set(SESSION_COOKIE, signSession(user.username), {

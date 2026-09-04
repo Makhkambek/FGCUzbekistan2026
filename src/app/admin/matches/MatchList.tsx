@@ -18,9 +18,13 @@ export default function MatchList({ matches }: { matches: MatchListRow[] }) {
 
   const playoffMatches = matches.filter((m) => m.phase === 'playoff');
   const qualMatches = matches.filter((m) => m.phase !== 'playoff');
-  // Qualification always finishes before a playoff bracket can be generated,
-  // so an unplayed qual match is always "next" before any playoff match.
-  const nextId = (qualMatches.find((m) => !m.played) ?? playoffMatches.find((m) => !m.played))?.id;
+  // Once a bracket exists the event has moved on: a qualification match left
+  // unplayed (or reset for a late correction) must not be flagged as "next"
+  // ahead of the playoff, and must not be flagged at all once the playoff is
+  // finished. Same rule the projector follows — see pickNextMatch.
+  const nextId = playoffMatches.length > 0
+    ? playoffMatches.find((m) => !m.played)?.id
+    : qualMatches.find((m) => !m.played)?.id;
 
   const openMatch = (id: number) => router.push(`/admin/matches/${id}`);
 

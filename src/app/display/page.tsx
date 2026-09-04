@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import StandingsTable from '../StandingsTable';
+import { pickNextMatch } from '@/lib/next-match';
 import FullscreenButton from './FullscreenButton';
 import { EVENT_BACKGROUND, gridTexture } from '@/lib/brand';
 
@@ -212,30 +213,13 @@ export default function DisplayPage() {
     );
   }
 
-  const nextMatch = (() => {
-    if (!matches) return null;
-    if (data && data.phase !== 'standings') {
-      const upcoming = matches
-        .filter((m) => m.phase === data.matchPhase && m.number > data.matchNumber && !m.played)
-        .sort((a, b) => a.number - b.number);
-      if (upcoming.length) return upcoming[0];
-    }
-    // Excluding the match on screen: when the live match is the last unplayed
-    // one of its phase, the fallback below used to hand back that same match
-    // and the ticker announced it as "next".
-    const onScreen = data && data.phase !== 'standings'
-      ? { phase: data.matchPhase, number: data.matchNumber } : null;
-    const remaining = matches
-      .filter((m) => !m.played
-        && !(onScreen && m.phase === onScreen.phase && m.number === onScreen.number))
-      .sort((a, b) => (a.phase === b.phase ? a.number - b.number : a.phase === 'qualification' ? -1 : 1));
-    // Once the bracket exists the event has moved on, so a qualification match
-    // left unplayed (a cancelled one, say) must not be announced to the hall as
-    // what is coming up next during the finals.
-    const playoffFirst = remaining.filter((m) => m.phase === 'playoff');
-    if (playoffBracketExists && playoffFirst.length) return playoffFirst[0];
-    return remaining[0] ?? null;
-  })();
+  const nextMatch = matches
+    ? pickNextMatch(
+        matches,
+        data && data.phase !== 'standings'
+          ? { phase: data.matchPhase, number: data.matchNumber } : null,
+        playoffBracketExists)
+    : null;
 
   // matches === null means /api/standings has not answered yet (or is
   // failing) — that is not the same as "nothing left to play", which is what

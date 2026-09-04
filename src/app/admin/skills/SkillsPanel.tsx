@@ -17,7 +17,14 @@ export default function SkillsPanel({ teams, attempts, table }: {
   const hasOrder = attempts.length > 0;
   const anyPlayed = attempts.some((a) => a.played);
 
-  const [selected, setSelected] = useState<number[]>(teams.map((t) => t.id));
+  // Nobody is picked to start with. Skills is opt-in — a team that has gone
+  // home, or whose robot is dead by then, should never end up in the order
+  // because someone forgot to untick them.
+  //
+  // Once an order exists the boxes show who is actually in it, so the panel
+  // reads as the truth on the field rather than as an empty form.
+  const teamsInOrder = [...new Set(attempts.map((a) => a.teamId))];
+  const [selected, setSelected] = useState<number[]>(teamsInOrder);
   const [attemptsPerTeam, setAttemptsPerTeam] = useState(DEFAULT_ATTEMPTS);
   const [alliance, setAlliance] = useState<'red' | 'blue'>('red');
   const [busy, setBusy] = useState(false);
@@ -26,6 +33,7 @@ export default function SkillsPanel({ teams, attempts, table }: {
 
   const toggle = (id: number) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const allPicked = selected.length === teams.length;
 
   async function generate() {
     if (busy) return;
@@ -70,19 +78,51 @@ export default function SkillsPanel({ teams, attempts, table }: {
   return (
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Who takes part</h2>
-        <div className="flex flex-wrap gap-2">
-          {teams.map((t) => (
-            <button key={t.id} onClick={() => toggle(t.id)} disabled={anyPlayed}
-              className={`px-3 py-1.5 rounded-md text-sm border transition-colors disabled:opacity-50 ${
-                selected.includes(t.id)
-                  ? 'bg-amber-50 border-amber-400 text-amber-900 font-semibold'
-                  : 'bg-white border-gray-300 text-gray-500'
-              }`}>
-              {t.name}
-            </button>
-          ))}
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Who takes part{' '}
+            <span className="text-sm font-normal text-gray-500">
+              — {selected.length} of {teams.length} picked
+            </span>
+          </h2>
+          <button
+            onClick={() => setSelected(allPicked ? [] : teams.map((t) => t.id))}
+            disabled={anyPlayed}
+            className="px-3 py-1.5 rounded-md border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+            {allPicked ? 'Clear all' : 'Pick all'}
+          </button>
         </div>
+        {/* A tick box per team, in a list rather than a row of chips: the
+            operator is reading down a list of who is in the hall and ticking
+            names off it, and a tick is unambiguous where a shaded chip is
+            not. */}
+        <div className="grid gap-px bg-gray-200 border border-gray-200 rounded-lg overflow-hidden sm:grid-cols-2 lg:grid-cols-3">
+          {teams.map((t) => {
+            const on = selected.includes(t.id);
+            return (
+              <button key={t.id} onClick={() => toggle(t.id)} disabled={anyPlayed}
+                aria-pressed={on}
+                className={`flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  on ? 'bg-amber-50 text-amber-900 font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}>
+                <span className={`w-4 h-4 shrink-0 rounded border flex items-center justify-center ${
+                  on ? 'bg-amber-600 border-amber-600 text-white' : 'bg-white border-gray-300'
+                }`}>
+                  {on && (
+                    <svg viewBox="0 0 12 10" className="w-2.5 h-2.5" fill="none"
+                      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 5.5L4.2 8.5L11 1.5" />
+                    </svg>
+                  )}
+                </span>
+                <span className="truncate">{t.name}</span>
+              </button>
+            );
+          })}
+        </div>
+        {selected.length === 0 && !anyPlayed && (
+          <p className="text-sm text-gray-500">Tick the teams that are taking part to build the order.</p>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm text-gray-500">Attempts per team</label>
           <input type="number" min={1} max={10} value={attemptsPerTeam} disabled={anyPlayed}

@@ -10,6 +10,7 @@ interface SkillsRow {
   teamId: number; name: string; total: number; best: number; attemptsPlayed: number;
   attempts: SkillsAttempt[];
 }
+interface AllianceStanding { seed: number; total: number; matchesPlayed: number; teams: string[] }
 interface Match {
   id: number; number: number; phase: string; played: boolean;
   red: string[]; blue: string[]; redScore: number | null; blueScore: number | null;
@@ -26,7 +27,23 @@ function longMatchLabel(phase: string, number: number): string {
   return phase === 'playoff' ? `Finals Match ${number}` : `Qualification Match ${number}`;
 }
 
-function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: {
+/**
+ * A team's name, clickable wherever it appears — their page opens a card for
+ * the team from any of these, and a spectator looking at a match row is
+ * exactly the person who wants to know how that team has been doing.
+ */
+function TeamName({ name, onTeam, className = '' }: {
+  name: string; onTeam?: (name: string) => void; className?: string;
+}) {
+  if (!onTeam) return <span className={className}>{name}</span>;
+  return (
+    <button onClick={() => onTeam(name)} className={`${className} hover:underline cursor-pointer`}>
+      {name}
+    </button>
+  );
+}
+
+function MatchSection({ title, rows, highlight = false, roomy = false, isHit, onTeam, mine }: {
   title: string;
   rows: Match[];
   highlight?: boolean;
@@ -34,6 +51,10 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
    *  the screen blank; the shorter list can afford bigger type and more air. */
   roomy?: boolean;
   isHit: (m: Match) => boolean;
+  /** Opens a team's own card. Absent inside that card — it is already open. */
+  onTeam?: (name: string) => void;
+  /** Inside a team's card, that team's cell is filled solid, as on their page. */
+  mine?: string;
 }) {
   return (
     <div>
@@ -62,13 +83,29 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
                 {phaseLabel}
               </div>
               <div className="mt-1.5 flex items-baseline gap-2 rounded bg-red-50 px-2 py-1">
-                <span className={`grow text-red-700 text-sm ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
+                <span className={`grow text-sm ${redWins ? 'font-black' : 'font-medium'}`}>
+                  {m.red.map((name, i) => (
+                    <span key={name}>
+                      {i > 0 && <span className="text-red-300"> · </span>}
+                      <TeamName name={name} onTeam={onTeam}
+                        className={name === mine ? 'text-red-900 font-black underline' : 'text-red-700'} />
+                    </span>
+                  ))}
+                </span>
                 {m.played
                   ? <span className={`shrink-0 font-mono text-red-900 ${redWins ? 'font-black' : 'font-medium'}`}>{m.redScore}</span>
                   : <span className="shrink-0 text-red-300">—</span>}
               </div>
               <div className="mt-1 flex items-baseline gap-2 rounded bg-blue-50 px-2 py-1">
-                <span className={`grow text-blue-700 text-sm ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
+                <span className={`grow text-sm ${blueWins ? 'font-black' : 'font-medium'}`}>
+                  {m.blue.map((name, i) => (
+                    <span key={name}>
+                      {i > 0 && <span className="text-blue-300"> · </span>}
+                      <TeamName name={name} onTeam={onTeam}
+                        className={name === mine ? 'text-blue-900 font-black underline' : 'text-blue-700'} />
+                    </span>
+                  ))}
+                </span>
                 {m.played
                   ? <span className={`shrink-0 font-mono text-blue-900 ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blueScore}</span>
                   : <span className="shrink-0 text-blue-300">—</span>}
@@ -106,13 +143,17 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
                       three names line up down the list the way theirs do, so a
                       team can be found by running the eye down one column. */}
                   {m.red.map((name, i) => (
-                    <td key={`r${i}`} className={`px-2 sm:px-3 py-2 sm:py-3 ${hit ? '' : 'bg-red-50'}`}>
-                      <span className={`text-red-700 ${roomy ? 'text-base sm:text-xl' : 'text-sm'} ${redWins ? 'font-bold' : 'font-normal'}`}>{name}</span>
+                    <td key={`r${i}`} className={`px-2 sm:px-3 py-2 sm:py-3 ${
+                      name === mine ? 'bg-red-500' : hit ? '' : 'bg-red-50'}`}>
+                      <TeamName name={name} onTeam={onTeam}
+                        className={`${name === mine ? 'text-white' : 'text-red-700'} ${roomy ? 'text-base sm:text-xl' : 'text-sm'} ${redWins ? 'font-bold' : 'font-normal'}`} />
                     </td>
                   ))}
                   {m.blue.map((name, i) => (
-                    <td key={`b${i}`} className={`px-2 sm:px-3 py-2 sm:py-3 ${hit ? '' : 'bg-blue-50'}`}>
-                      <span className={`text-blue-700 ${roomy ? 'text-base sm:text-xl' : 'text-sm'} ${blueWins ? 'font-bold' : 'font-normal'}`}>{name}</span>
+                    <td key={`b${i}`} className={`px-2 sm:px-3 py-2 sm:py-3 ${
+                      name === mine ? 'bg-blue-600' : hit ? '' : 'bg-blue-50'}`}>
+                      <TeamName name={name} onTeam={onTeam}
+                        className={`${name === mine ? 'text-white' : 'text-blue-700'} ${roomy ? 'text-base sm:text-xl' : 'text-sm'} ${blueWins ? 'font-bold' : 'font-normal'}`} />
                     </td>
                   ))}
                   <td className={`px-2 sm:px-4 py-2 sm:py-3 text-right w-16 sm:w-24 ${hit ? '' : 'bg-red-100'}`}>
@@ -135,13 +176,109 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
   );
 }
 
+/**
+ * A team's own card, opened by clicking its name anywhere on the board —
+ * copied from the card FIRST Global's results page opens for a team: who they
+ * are and where they stand at the top, then every match they are in, with
+ * their own cell filled solid so it can be picked out of the row at a glance.
+ */
+function TeamCard({ name, rank, standing, matches, onClose }: {
+  name: string;
+  rank: number | null;
+  standing: Standing | undefined;
+  matches: Match[];
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    // The page behind must not scroll while the card is over it.
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [onClose]);
+
+  const playoff = matches.filter((m) => m.phase === 'playoff');
+  const qual = matches.filter((m) => m.phase !== 'playoff');
+  const never = () => false;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-3 sm:p-8"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Team ${name}`}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-3xl rounded-2xl bg-white shadow-xl my-4"
+      >
+        <div className="flex items-start justify-between gap-4 px-5 sm:px-7 pt-5 sm:pt-6">
+          <h2 className="text-xl sm:text-3xl font-bold text-gray-900">Team {name}</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="shrink-0 w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-lg leading-none"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="px-5 sm:px-7 pt-4">
+          {rank !== null && (
+            <span className="inline-block rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-700">
+              Rank #{rank}
+            </span>
+          )}
+          <dl className="mt-4 rounded-xl border border-gray-200 divide-y divide-gray-200 text-sm sm:text-base">
+            {[
+              ['Ranking Score', standing && standing.played > 0 ? standing.rankingScore.toFixed(2) : '—'],
+              ['Highest Score', standing ? standing.best : '—'],
+              ['Total Suppression Points', standing ? standing.suppressionTotal : '—'],
+              ['Matches Played', standing ? standing.played : '—'],
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between gap-4 px-4 py-3">
+                <dt className="text-gray-600">{label}:</dt>
+                <dd className="font-bold text-gray-900">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div className="mt-5 overflow-hidden rounded-b-2xl">
+          {playoff.length > 0 && (
+            <MatchSection title="Finals Matches" rows={playoff} highlight isHit={never} mine={name} />
+          )}
+          {qual.length > 0
+            ? <MatchSection title="Qualification Matches" rows={qual} isHit={never} mine={name} />
+            : playoff.length === 0 && (
+              <p className="px-5 sm:px-7 py-8 text-center text-gray-500">
+                This team has no matches yet.
+              </p>
+            )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function StandingsTable() {
-  const [data, setData] = useState<{ standings: Standing[]; matches: Match[]; skills?: SkillsRow[] } | null>(null);
+  const [data, setData] = useState<{
+    standings: Standing[]; matches: Match[]; skills?: SkillsRow[];
+    allianceStandings?: AllianceStanding[] | null;
+  } | null>(null);
   const [view, setView] = useState<'standings' | 'matches' | 'finals' | 'skills'>('standings');
   // Which team's attempts are open on the skills tab. One at a time: the point
   // of the tab is to look at a team, and three teams unfolded at once is the
   // long list the tab exists to avoid.
   const [openTeam, setOpenTeam] = useState<number | null>(null);
+  // Whose card is open over the board, by name — the name is what every table
+  // on this page carries, and what a click hands back.
+  const [cardTeam, setCardTeam] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [query, setQuery] = useState('');
   // The 10s polls are not guaranteed to come back in order: a delayed request
@@ -222,13 +359,16 @@ export default function StandingsTable() {
   // spectator who is standing on it; without this they would be left staring
   // at an empty table with no tab highlighted.
   const skills = data.skills ?? [];
-  const activeView = (view === 'finals' && playoffMatches.length === 0)
+  // Their Finals tab is the alliance table, not a list of matches — the three
+  // finals matches live in Matches Results with the rest, under their own
+  // heading. So the tab follows the alliances, not the bracket.
+  const alliances = data.allianceStandings ?? [];
+  const activeView = (view === 'finals' && alliances.length === 0)
     || (view === 'skills' && skills.length === 0)
       ? 'matches' : view;
-  const visibleMatches = activeView === 'finals' ? playoffMatches : qualMatches;
   // Counted over what this tab actually shows: "Found 3" while looking at a
   // list of one is worse than no count at all.
-  const totalHits = q ? visibleMatches.filter(isHit).length : 0;
+  const totalHits = q ? data.matches.filter(isHit).length : 0;
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -267,7 +407,7 @@ export default function StandingsTable() {
               Skills
             </button>
           )}
-          {playoffMatches.length > 0 && (
+          {alliances.length > 0 && (
             <button
               onClick={() => setView('finals')}
               className={`shrink-0 px-3 sm:px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
@@ -379,7 +519,9 @@ export default function StandingsTable() {
               {data.standings.map((s, i) => (
                 <tr key={s.teamId} className="hover:bg-gray-50 border-b border-gray-100 last:border-0">
                   <td className="px-2 sm:px-6 py-2 sm:py-3 text-gray-400 w-8">{i + 1}</td>
-                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-blue-600 font-medium text-sm md:text-base lg:text-lg">{s.name}</td>
+                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-sm md:text-base lg:text-lg">
+                    <TeamName name={s.name} onTeam={setCardTeam} className="text-blue-600 font-medium" />
+                  </td>
                   <td className="px-2 sm:px-6 py-2 sm:py-3">
                     {s.played === 0
                       ? <span className="text-gray-400 italic font-mono text-sm md:text-base lg:text-lg">—</span>
@@ -388,6 +530,42 @@ export default function StandingsTable() {
                   <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.best}</td>
                   <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.suppressionTotal}</td>
                   <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.played}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : activeView === 'finals' ? (
+        /* Their Finals tab is the alliance table — rank, alliance, its score,
+           how many it has played, and the teams in it. The finals matches
+           themselves are in Matches Results with everything else. */
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[320px] border-collapse">
+            <thead>
+              <tr>
+                <th className="px-2 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200 w-10">Rank</th>
+                <th className="px-2 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200">Alliance</th>
+                <th className="px-2 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200 whitespace-nowrap">Rank Score</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200">Played</th>
+                <th className="px-2 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200">Team 1</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200">Team 2</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200">Team 3</th>
+              </tr>
+            </thead>
+            <tbody className="text-base md:text-lg">
+              {alliances.map((a, i) => (
+                <tr key={a.seed} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-gray-400">{i + 1}</td>
+                  <td className="px-2 sm:px-6 py-2 sm:py-3 font-medium">Alliance {a.seed}</td>
+                  <td className="px-2 sm:px-6 py-2 sm:py-3"><strong className="font-mono">{a.total}</strong></td>
+                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-gray-500">{a.matchesPlayed}</td>
+                  {[0, 1, 2].map((n) => (
+                    <td key={n} className={`px-2 sm:px-6 py-2 sm:py-3 ${n === 0 ? '' : 'hidden sm:table-cell'}`}>
+                      {a.teams[n]
+                        ? <TeamName name={a.teams[n]} onTeam={setCardTeam} className="text-blue-600" />
+                        : <span className="text-gray-400">—</span>}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
@@ -417,10 +595,24 @@ export default function StandingsTable() {
               )}
             </div>
           </div>
-          {activeView === 'finals'
-            ? <MatchSection title="Finals Matches" rows={visibleMatches} highlight roomy isHit={isHit} />
-            : <MatchSection title="Qualification Matches" rows={visibleMatches} isHit={isHit} />}
+          {playoffMatches.length > 0 && (
+            <MatchSection title="Finals Matches" rows={playoffMatches} highlight roomy isHit={isHit} onTeam={setCardTeam} />
+          )}
+          <MatchSection title="Qualification Matches" rows={qualMatches} isHit={isHit} onTeam={setCardTeam} />
         </div>
+      )}
+
+      {cardTeam && (
+        <TeamCard
+          name={cardTeam}
+          rank={(() => {
+            const i = data.standings.findIndex((t) => t.name === cardTeam);
+            return i === -1 ? null : i + 1;
+          })()}
+          standing={data.standings.find((t) => t.name === cardTeam)}
+          matches={data.matches.filter((m) => m.red.includes(cardTeam) || m.blue.includes(cardTeam))}
+          onClose={() => setCardTeam(null)}
+        />
       )}
     </div>
   );

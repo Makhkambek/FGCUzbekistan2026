@@ -16,7 +16,9 @@ const CARDS: CardType[] = ['none', 'yellow', 'white', 'red'];
 // The limits below mirror what matchResultSchema enforces on the server.
 // Capping the inputs here keeps a field from accepting what the API would reject.
 const MAX_WILDFIRE = 500; // suppression, extinguisher
+/** Three robots can lift two partners between them; two can lift one. */
 const MAX_PARTNER_CLIMB = 2;
+const MAX_PARTNER_CLIMB_PLAYOFF = 1;
 const MAX_FOULS = 20;
 
 // text-base = 16px: anything smaller makes iOS zoom the page on focus,
@@ -43,6 +45,7 @@ export default function MatchForm({ match, teamNames, nextMatch }: {
     [match.climb_red1, match.climb_red2, match.climb_red3] as Trio<ClimbPosition>);
   const [climbBlue, setClimbBlue] = useState<Trio<ClimbPosition>>(
     [match.climb_blue1, match.climb_blue2, match.climb_blue3] as Trio<ClimbPosition>);
+  const maxPartnerClimb = match.phase === 'playoff' ? MAX_PARTNER_CLIMB_PLAYOFF : MAX_PARTNER_CLIMB;
   const [partnerRed, setPartnerRed] = useState(match.partner_climb_red);
   const [partnerBlue, setPartnerBlue] = useState(match.partner_climb_blue);
   const [minorRed, setMinorRed] = useState(match.minor_fouls_red);
@@ -248,7 +251,10 @@ export default function MatchForm({ match, teamNames, nextMatch }: {
   );
 
   const side = (
-    color: 'red' | 'blue', teams: number[],
+    // A playoff alliance is two robots, so the third slot arrives empty and
+    // is left out of the form — there is nothing to score for a robot that is
+    // not on the field, and an empty row invites a climb to be entered for it.
+    color: 'red' | 'blue', teams: (number | null)[],
     climbs: Trio<ClimbPosition>, setClimbs: (t: Trio<ClimbPosition>) => void,
     cards: Trio<CardType>, setCards: (t: Trio<CardType>) => void,
   ) => (
@@ -256,7 +262,7 @@ export default function MatchForm({ match, teamNames, nextMatch }: {
       <p className={`text-xs font-semibold uppercase tracking-wide ${color === 'red' ? 'text-red-700' : 'text-blue-700'}`}>
         {color === 'red' ? 'Red' : 'Blue'}
       </p>
-      {teams.map((teamId, i) => (
+      {teams.map((teamId, i) => teamId === null ? null : (
         <div key={teamId} className="flex items-center gap-2">
           <span className="w-40 truncate text-gray-900">{teamNames[teamId] ?? teamId}</span>
           <select value={climbs[i]}
@@ -341,8 +347,11 @@ export default function MatchForm({ match, teamNames, nextMatch }: {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
         <label className="flex justify-between items-center">Red suppression {num(suppressionRed, setSuppressionRed)}</label>
         <label className="flex justify-between items-center">Blue suppression {num(suppressionBlue, setSuppressionBlue)}</label>
-        <label className="flex justify-between items-center">Red partner climbs {num(partnerRed, setPartnerRed, MAX_PARTNER_CLIMB)}</label>
-        <label className="flex justify-between items-center">Blue partner climbs {num(partnerBlue, setPartnerBlue, MAX_PARTNER_CLIMB)}</label>
+        {/* Two robots in a playoff alliance can only lift one partner between
+            them; three can lift two. The cap follows the phase so a final
+            cannot be given a climb that did not happen. */}
+        <label className="flex justify-between items-center">Red partner climbs {num(partnerRed, setPartnerRed, maxPartnerClimb)}</label>
+        <label className="flex justify-between items-center">Blue partner climbs {num(partnerBlue, setPartnerBlue, maxPartnerClimb)}</label>
         <label className="flex justify-between items-center">Red minor fouls {num(minorRed, setMinorRed, MAX_FOULS)}</label>
         <label className="flex justify-between items-center">Blue minor fouls {num(minorBlue, setMinorBlue, MAX_FOULS)}</label>
         <label className="flex justify-between items-center">Red major fouls {num(majorRed, setMajorRed, MAX_FOULS)}</label>

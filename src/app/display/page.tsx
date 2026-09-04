@@ -979,7 +979,7 @@ function PlayoffScreen({ standings, nextMatchLabel, clock }: {
         boxShadow: '0 30px 70px oklch(0.14 0.03 250 / 0.55)',
       }}>
         <div style={{
-          display: 'grid', gridTemplateColumns: '150px repeat(3, 1fr) 210px', alignItems: 'stretch',
+          display: 'grid', gridTemplateColumns: '150px repeat(2, 1fr) 210px', alignItems: 'stretch',
           background: 'oklch(0.24 0.06 255)', borderBottom: '2px solid oklch(1 0 0 / 0.6)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18px 0', fontFamily: F_MONO, fontSize: 21, fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.9)' }}>
@@ -989,8 +989,8 @@ function PlayoffScreen({ standings, nextMatchLabel, clock }: {
             <div style={{ padding: '8px 0 4px', textAlign: 'center', fontFamily: F_MONO, fontSize: 19, letterSpacing: '0.26em', textTransform: 'uppercase', color: 'oklch(0.85 0.1 245)' }}>
               Alliance
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
-              {['Team 1', 'Team 2', 'Team 3'].map((t) => (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+              {['Team 1', 'Team 2'].map((t) => (
                 <div key={t} style={{ padding: '2px 0 12px', textAlign: 'center', fontFamily: F_MONO, fontSize: 20, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.82)' }}>
                   {t}
                 </div>
@@ -1010,7 +1010,7 @@ function PlayoffScreen({ standings, nextMatchLabel, clock }: {
         <div style={{ flex: '1 1 0%', display: 'flex', flexDirection: 'column' }}>
           {standings.map((a, i) => (
             <div key={a.seed} style={{
-              flex: '1 1 0%', minHeight: 0, display: 'grid', gridTemplateColumns: '150px repeat(3, 1fr) 210px',
+              flex: '1 1 0%', minHeight: 0, display: 'grid', gridTemplateColumns: '150px repeat(2, 1fr) 210px',
               alignItems: 'stretch', background: i % 2 ? 'oklch(0.96 0.004 250)' : 'oklch(0.99 0.002 250)',
               borderBottom: '1px solid oklch(0.55 0.02 250 / 0.18)',
             }}>

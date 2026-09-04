@@ -72,10 +72,15 @@ export type DisplayPayload =
 
 const STANDINGS: DisplayStandings = { phase: 'standings' };
 
-function lineup(ids: number[], teamNames: Record<number, string>, ranks: RankMap): AllianceLineup {
+function lineup(
+  ids: (number | null)[], teamNames: Record<number, string>, ranks: RankMap,
+): AllianceLineup {
+  // An empty slot is a robot that is not there — a playoff alliance is two —
+  // and it is left out rather than drawn as a dash beside the two who are.
+  const present = ids.filter((id): id is number => id !== null);
   return {
-    teams: ids.map((id) => teamNames[id] ?? '—'),
-    ranks: ids.map((id) => ranks[id] ?? null),
+    teams: present.map((id) => teamNames[id] ?? '—'),
+    ranks: present.map((id) => ranks[id] ?? null),
   };
 }
 

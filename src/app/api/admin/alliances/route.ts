@@ -12,7 +12,7 @@ import type { SelectionState, PickSlot } from '@/lib/alliances/selection';
 
 const pickSchema = z.object({
   allianceSeed: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  slotIndex: z.union([z.literal(0), z.literal(1)]),
+  slotIndex: z.literal(0),
   teamId: z.number().int().positive(),
 });
 
@@ -73,7 +73,9 @@ function stateFromRows(rows: AllianceRow[], ranked: number[]): SelectionState {
   return rows.map((r) => ({
     seed: r.seed,
     captain: r.captain_team_id,
-    picks: [r.pick1_team_id, r.pick2_team_id] as [PickSlot, PickSlot],
+    // pick2 is left over from the three-team alliance and is no longer read
+    // or written: an alliance is a captain and one team.
+    picks: [r.pick1_team_id] as [PickSlot],
   }));
 }
 
@@ -134,7 +136,7 @@ export async function POST(req: NextRequest) {
 
 const clearSchema = z.object({
   seed: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  slot: z.union([z.literal(0), z.literal(1)]),
+  slot: z.literal(0),
 });
 
 export async function DELETE(req: NextRequest) {

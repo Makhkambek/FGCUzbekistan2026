@@ -7,8 +7,14 @@ import type { MatchResultInput } from '../validation';
 export interface MatchRow extends RowDataPacket {
   id: number; match_number: number; phase: 'qualification' | 'playoff';
   red_alliance_id: number | null; blue_alliance_id: number | null;
-  red1_id: number; red2_id: number; red3_id: number;
-  blue1_id: number; blue2_id: number; blue3_id: number;
+  red1_id: number; red2_id: number;
+  /**
+   * Empty in the playoff: an alliance is two robots there, three in
+   * qualification. Every screen drops the empty slot rather than drawing a
+   * dash where no team stands.
+   */
+  red3_id: number | null;
+  blue1_id: number; blue2_id: number; blue3_id: number | null;
   played: number;
   suppression_red: number; suppression_blue: number; extinguisher: number;
   climb_red1: string; climb_red2: string; climb_red3: string;
@@ -55,7 +61,7 @@ async function clearDisplayPointerForPhase(
 
 export async function insertMatches(rows: {
   matchNumber: number; phase: 'qualification' | 'playoff';
-  red: [number, number, number]; blue: [number, number, number];
+  red: [number, number, number | null]; blue: [number, number, number | null];
   redAllianceId?: number | null; blueAllianceId?: number | null;
 }[], options?: { clearPhase?: 'qualification' | 'playoff' }): Promise<void> {
   const pool = getPool();

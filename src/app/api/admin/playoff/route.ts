@@ -36,18 +36,20 @@ export async function POST() {
   if (notReady) return NextResponse.json({ error: notReady }, { status: 409 });
 
   const alliances = await getAlliances();
-  if (alliances.length !== 3 || alliances.some((a) => !a.pick1_team_id || !a.pick2_team_id)) {
+  if (alliances.length !== 3 || alliances.some((a) => !a.pick1_team_id)) {
     return NextResponse.json(
       { error: 'All three alliances must be complete first' }, { status: 400 });
   }
 
   const bySeed = new Map(alliances.map((a) => [a.seed, a]));
-  const teamsOf = (seed: number): [number, number, number] => {
+  // Two robots a side: the captain and its one pick, with the match's third
+  // slot left empty.
+  const teamsOf = (seed: number): [number, number, null] => {
     const a = bySeed.get(seed);
-    if (!a || !a.pick1_team_id || !a.pick2_team_id) {
+    if (!a || !a.pick1_team_id) {
       throw new Error(`Alliance ${seed} was not found or is incomplete`);
     }
-    return [a.captain_team_id, a.pick1_team_id, a.pick2_team_id];
+    return [a.captain_team_id, a.pick1_team_id, null];
   };
 
   try {

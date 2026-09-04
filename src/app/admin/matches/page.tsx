@@ -29,8 +29,10 @@ export default async function MatchesPage() {
     }
     return {
       id: m.id, number: m.match_number, phase: m.phase, played: !!m.played,
-      red: [m.red1_id, m.red2_id, m.red3_id].map((id) => teamNames[id] ?? String(id)),
-      blue: [m.blue1_id, m.blue2_id, m.blue3_id].map((id) => teamNames[id] ?? String(id)),
+      red: [m.red1_id, m.red2_id, m.red3_id]
+        .filter((id): id is number => id !== null).map((id) => teamNames[id] ?? String(id)),
+      blue: [m.blue1_id, m.blue2_id, m.blue3_id]
+        .filter((id): id is number => id !== null).map((id) => teamNames[id] ?? String(id)),
       redScore, blueScore,
     };
   });

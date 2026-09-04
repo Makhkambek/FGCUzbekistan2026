@@ -20,7 +20,7 @@ describe('PLAYOFF_PAIRINGS', () => {
 
 describe('allianceTeams', () => {
   it('возвращает капитана и оба пика', () => {
-    expect(allianceTeams({ seed: 1, captain: 4, picks: [7, 9] })).toEqual([4, 7, 9]);
+    expect(allianceTeams({ seed: 1, captain: 4, picks: [7] })).toEqual([4, 7]);
   });
 });
 

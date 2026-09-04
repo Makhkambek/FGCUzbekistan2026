@@ -9,23 +9,31 @@ describe('initialSelection', () => {
     expect(initialSelection(ranked).map((a) => a.captain)).toEqual([1, 2, 3]);
   });
 
-  it('оба пика у каждого альянса изначально пустые слоты', () => {
-    expect(initialSelection(ranked).map((a) => a.picks)).toEqual([[null, null], [null, null], [null, null]]);
+  it('единственный пик каждого альянса изначально пуст', () => {
+    // Альянс — капитан плюс одна команда: правило турнира от 4 сентября 2026,
+    // когда финал перешёл на 2 робота против 2.
+    expect(initialSelection(ranked).map((a) => a.picks)).toEqual([[null], [null], [null]]);
+  });
+
+  it('шести команд хватает на три альянса', () => {
+    expect(initialSelection([1, 2, 3, 4, 5, 6]).map((a) => a.captain)).toEqual([1, 2, 3]);
+  });
+
+  it('пяти команд не хватает', () => {
+    expect(() => initialSelection([1, 2, 3, 4, 5])).toThrow(/at least 6/i);
   });
 });
 
 describe('setPick — свободный порядок', () => {
   it('можно сразу выбрать пик для альянса 3, не трогая альянс 1', () => {
     const s = setPick(initialSelection(ranked), ranked, 3, 0, 7);
-    expect(s.find((a) => a.seed === 3)!.picks).toEqual([7, null]);
-    expect(s.find((a) => a.seed === 1)!.picks).toEqual([null, null]);
+    expect(s.find((a) => a.seed === 3)!.picks).toEqual([7]);
+    expect(s.find((a) => a.seed === 1)!.picks).toEqual([null]);
   });
 
-  it('внутри одного альянса можно сначала заполнить слот 2, потом слот 1', () => {
-    let s = setPick(initialSelection(ranked), ranked, 1, 1, 5);
-    expect(s.find((a) => a.seed === 1)!.picks).toEqual([null, 5]);
-    s = setPick(s, ranked, 1, 0, 6);
-    expect(s.find((a) => a.seed === 1)!.picks).toEqual([6, 5]);
+  it('второго слота больше нет — пик у альянса один', () => {
+    // @ts-expect-error the second slot is gone from the type as well
+    expect(() => setPick(initialSelection(ranked), ranked, 1, 1, 5)).toThrow(/slot/i);
   });
 
   it('нельзя выбрать команду не из рейтинга', () => {
@@ -65,16 +73,16 @@ describe('setPick — свободный порядок', () => {
   it('переназначить уже заполненный слот другой командой — старая команда освобождается', () => {
     let s = setPick(initialSelection(ranked), ranked, 1, 0, 5);
     s = setPick(s, ranked, 1, 0, 6);
-    expect(s.find((a) => a.seed === 1)!.picks).toEqual([6, null]);
+    expect(s.find((a) => a.seed === 1)!.picks).toEqual([6]);
     // 5 снова свободна — её можно поставить в другой альянс.
     const s2 = setPick(s, ranked, 2, 0, 5);
-    expect(s2.find((a) => a.seed === 2)!.picks).toEqual([5, null]);
+    expect(s2.find((a) => a.seed === 2)!.picks).toEqual([5]);
   });
 
   it('повторно указать ту же команду в том же слоте — не ошибка', () => {
     let s = setPick(initialSelection(ranked), ranked, 1, 0, 5);
     s = setPick(s, ranked, 1, 0, 5);
-    expect(s.find((a) => a.seed === 1)!.picks).toEqual([5, null]);
+    expect(s.find((a) => a.seed === 1)!.picks).toEqual([5]);
   });
 
   it('во втором круге доступны только те, кого ещё не разобрали', () => {
@@ -91,7 +99,7 @@ describe('setPick — свободный порядок', () => {
   it('ни одна команда не попадает в два места', () => {
     let s = setPick(initialSelection(ranked), ranked, 1, 0, 4);
     s = setPick(s, ranked, 2, 0, 5);
-    s = setPick(s, ranked, 1, 1, 6);
+    s = setPick(s, ranked, 3, 0, 6);
 
     const allTeams = new Set<number>();
     for (const a of s) {
@@ -110,7 +118,7 @@ describe('clearPick', () => {
   it('освобождает слот', () => {
     let s = setPick(initialSelection(ranked), ranked, 1, 0, 5);
     s = clearPick(s, 1, 0);
-    expect(s.find((a) => a.seed === 1)!.picks).toEqual([null, null]);
+    expect(s.find((a) => a.seed === 1)!.picks).toEqual([null]);
   });
 
   it('очищенная команда снова доступна для любого альянса', () => {

@@ -25,7 +25,7 @@ async function rankMap(phase: 'qualification' | 'playoff', teamIds: number[]): P
     const alliances = await getAlliances();
     const ranks: RankMap = {};
     for (const a of alliances) {
-      for (const id of [a.captain_team_id, a.pick1_team_id, a.pick2_team_id]) {
+      for (const id of [a.captain_team_id, a.pick1_team_id]) {
         if (id) ranks[id] = a.seed;
       }
     }

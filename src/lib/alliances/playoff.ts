@@ -23,7 +23,7 @@ export function allianceTeams(slot: AllianceSlot): number[] {
   if (slot.picks.some((p) => p === null)) {
     throw new Error(`Alliance ${slot.seed} is not complete yet`);
   }
-  return [slot.captain, ...(slot.picks as [number, number])];
+  return [slot.captain, ...(slot.picks as [number])];
 }
 
 /**

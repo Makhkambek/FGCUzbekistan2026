@@ -3,12 +3,17 @@ export type PickSlot = number | null;
 export interface AllianceSlot {
   seed: number;
   captain: number;
-  picks: [PickSlot, PickSlot];
+  /**
+   * One pick, not two: from 4 September 2026 an alliance is a captain and one
+   * team, and the playoff is two robots a side. Still an array, because every
+   * screen that draws the draft walks it.
+   */
+  picks: [PickSlot];
 }
 
 export type SelectionState = AllianceSlot[];
 
-export const MIN_TEAMS = 9;
+export const MIN_TEAMS = 6;
 
 /**
  * Thrown when there are not enough teams to seat three alliances. A distinct
@@ -18,7 +23,7 @@ export const MIN_TEAMS = 9;
  */
 export class NotEnoughTeamsError extends Error {
   constructor(readonly available: number) {
-    super(`Three alliances of three teams need at least ${MIN_TEAMS} teams`);
+    super(`Three alliances of two teams need at least ${MIN_TEAMS} teams`);
     this.name = 'NotEnoughTeamsError';
   }
 }
@@ -27,7 +32,7 @@ export function initialSelection(rankedTeamIds: number[]): SelectionState {
   if (rankedTeamIds.length < MIN_TEAMS) {
     throw new NotEnoughTeamsError(rankedTeamIds.length);
   }
-  return rankedTeamIds.slice(0, 3).map((captain, i) => ({ seed: i + 1, captain, picks: [null, null] }));
+  return rankedTeamIds.slice(0, 3).map((captain, i) => ({ seed: i + 1, captain, picks: [null] }));
 }
 
 function assignedTeams(state: SelectionState): Set<number> {
@@ -65,10 +70,11 @@ export function isPickable(state: SelectionState, allianceSeed: number, teamId: 
  */
 export function setPick(
   state: SelectionState, rankedTeamIds: number[],
-  allianceSeed: number, slotIndex: 0 | 1, teamId: number,
+  allianceSeed: number, slotIndex: 0, teamId: number,
 ): SelectionState {
   const alliance = state.find((a) => a.seed === allianceSeed);
   if (!alliance) throw new Error('No such alliance');
+  if (slotIndex !== 0) throw new Error('An alliance has one pick slot');
   if (!rankedTeamIds.includes(teamId)) throw new Error('Team is not in the ranking');
   if (teamId === alliance.captain) throw new Error('This team is already the captain of this alliance');
 
@@ -80,16 +86,16 @@ export function setPick(
     throw new Error('This team is already in an alliance');
   }
 
-  const next: SelectionState = asIfEmpty.map((a) => ({ ...a, picks: [...a.picks] as [PickSlot, PickSlot] }));
+  const next: SelectionState = asIfEmpty.map((a) => ({ ...a, picks: [...a.picks] as [PickSlot] }));
   next.find((a) => a.seed === allianceSeed)!.picks[slotIndex] = teamId;
   return next;
 }
 
 /** Empties one pick slot; the team returns to the pool for every alliance. */
-export function clearPick(state: SelectionState, allianceSeed: number, slotIndex: 0 | 1): SelectionState {
+export function clearPick(state: SelectionState, allianceSeed: number, slotIndex: 0): SelectionState {
   const alliance = state.find((a) => a.seed === allianceSeed);
   if (!alliance) throw new Error('No such alliance');
-  const next: SelectionState = state.map((a) => ({ ...a, picks: [...a.picks] as [PickSlot, PickSlot] }));
+  const next: SelectionState = state.map((a) => ({ ...a, picks: [...a.picks] as [PickSlot] }));
   next.find((a) => a.seed === allianceSeed)!.picks[slotIndex] = null;
   return next;
 }

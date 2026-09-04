@@ -178,16 +178,19 @@ export default function DisplayPage() {
   const scale = useCanvasScale();
   const clock = useClock();
 
-  // Two clock layouts, so the hall can be judged on the day: the default puts
-  // the countdown in the header next to the event name, "?clock=big" gives the
-  // digits the whole left half of the header. Read from the URL in an effect —
-  // the server render has no query string and would mismatch.
+  // Three clock layouts, so the choice can be made on the actual projector in
+  // the actual room: the default sits in the header beside the event name,
+  // "?clock=big" takes the title's space on the left, and "?clock=center" puts
+  // the digits down the middle of the field, between the two alliances.
   // useSyncExternalStore, not an effect: the server render has no query string,
   // and this is a read of the browser's own state that never changes afterwards.
-  const bigClock = useSyncExternalStore(
+  const clockVariant = useSyncExternalStore(
     () => () => {},
-    () => new URLSearchParams(window.location.search).get('clock') === 'big',
-    () => false,
+    () => {
+      const v = new URLSearchParams(window.location.search).get('clock');
+      return v === 'big' || v === 'center' ? v : 'header';
+    },
+    () => 'header' as const,
   );
 
   const live = data?.phase === 'live' ? data : null;
@@ -386,7 +389,7 @@ export default function DisplayPage() {
         )}
         {data && data.phase !== 'standings' && (
           <MatchScreen data={data} nextMatchLabel={nextMatchLabel} clock={clock}
-            matchClock={data.phase === 'live' ? matchClockState : null} bigClock={bigClock} />
+            matchClock={data.phase === 'live' ? matchClockState : null} clockVariant={clockVariant} />
         )}
         {live && !sounds.unlocked && (
           <button onClick={sounds.unlock} style={{
@@ -443,17 +446,19 @@ function Badge({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function MatchScreen({ data, nextMatchLabel, clock, matchClock, bigClock }: {
+function MatchScreen({ data, nextMatchLabel, clock, matchClock, clockVariant }: {
   data: Extract<DisplayPayload, { phase: 'live' | 'result' }>;
   nextMatchLabel: string | null; clock: Date | null;
   matchClock: ReturnType<typeof useMatchClock>;
-  bigClock: boolean;
+  clockVariant: 'header' | 'big' | 'center';
 }) {
   const isResult = data.phase === 'result';
   const result = isResult ? (data as Extract<DisplayPayload, { phase: 'result' }>) : null;
-  // The big clock takes the title's place, so it only applies while a match is
-  // live — a result screen keeps "RESULTS" where the digits would be.
-  const showBigClock = bigClock && data.phase === 'live';
+  // Every alternative layout only applies while a match is live — a result
+  // screen keeps "RESULTS" and its two full-width alliance panels.
+  const isLive = data.phase === 'live';
+  const showBigClock = clockVariant === 'big' && isLive;
+  const showCenterClock = clockVariant === 'center' && isLive;
 
   return (
     <>
@@ -477,15 +482,20 @@ function MatchScreen({ data, nextMatchLabel, clock, matchClock, bigClock }: {
               {data.matchPhase === 'playoff' ? 'Playoff' : 'Qualification'} · Tashkent
             </div>
           </div>
-          {data.phase === 'live' && !showBigClock && <MatchCountdown clock={matchClock} />}
+          {isLive && !showBigClock && !showCenterClock && <MatchCountdown clock={matchClock} />}
         </div>
       </div>
 
       <style>{'@keyframes fgcPulse { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }'}</style>
 
-      <div style={{ position: 'relative', flex: '1 1 0%', minHeight: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
+      <div style={{
+        position: 'relative', flex: '1 1 0%', minHeight: 0, display: 'grid',
+        gridTemplateColumns: showCenterClock ? '1fr auto 1fr' : '1fr 1fr',
+        gap: showCenterClock ? 28 : 40,
+      }}>
         <AlliancePanel color="red" data={data.red} isWinner={result?.winner === 'red'}
           shared={result ? { extinguisher: result.extinguisher, coopertition: result.coopertition } : null} />
+        {showCenterClock && <CenterMatchCountdown clock={matchClock} />}
         <AlliancePanel color="blue" data={data.blue} isWinner={result?.winner === 'blue'}
           shared={result ? { extinguisher: result.extinguisher, coopertition: result.coopertition } : null} />
       </div>
@@ -573,6 +583,45 @@ function BigMatchCountdown({ clock }: { clock: ReturnType<typeof useMatchClock> 
         fontFamily: F_MONO, fontSize: 132, fontWeight: 700, lineHeight: 0.92,
         letterSpacing: '-0.01em', color: theme.digits, fontVariantNumeric: 'tabular-nums',
         textShadow: 'oklch(0.25 0.08 340 / 0.45) 0px 6px 26px',
+      }}>
+        {clock?.label ?? '2:30'}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The third clock: down the middle of the field, between the two alliances,
+ * the way a field display is read at a robotics event — the digits sit where
+ * everyone in the hall is already looking, and get a whole column's height
+ * instead of borrowing from the header.
+ */
+function CenterMatchCountdown({ clock }: { clock: ReturnType<typeof useMatchClock> }) {
+  const period = clock?.period ?? 'pre';
+  const theme = period === 'endgame'
+    ? { digits: 'oklch(0.88 0.17 84)', caption: 'Endgame' }
+    : period === 'over'
+      ? { digits: 'oklch(0.72 0.21 25)', caption: 'Time' }
+      : period === 'pre'
+        ? { digits: 'oklch(1 0 0 / 0.5)', caption: 'Ready' }
+        : { digits: 'oklch(1 0 0)', caption: 'On field' };
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      gap: 10, width: 500, padding: '0 8px',
+      animation: period === 'endgame' ? 'fgcPulse 1s ease-in-out infinite' : undefined,
+    }}>
+      <span style={{
+        fontFamily: F_MONO, fontSize: 34, fontWeight: 700, letterSpacing: '0.34em',
+        textTransform: 'uppercase', color: theme.digits, opacity: 0.85,
+      }}>
+        {theme.caption}
+      </span>
+      <span style={{
+        fontFamily: F_MONO, fontSize: 210, fontWeight: 700, lineHeight: 0.92,
+        letterSpacing: '-0.03em', color: theme.digits, fontVariantNumeric: 'tabular-nums',
+        textShadow: 'oklch(0.2 0.06 340 / 0.55) 0px 8px 34px',
       }}>
         {clock?.label ?? '2:30'}
       </span>

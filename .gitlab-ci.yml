@@ -17,6 +17,15 @@
 #                         SESSION_SECRET), see .env.example
 # =============================================================================
 
+# One pipeline per push: the merge-request pipeline when an MR is open,
+# the branch pipeline otherwise.
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+
 stages:
   - test
   - build
@@ -32,11 +41,12 @@ test:
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run lint
+    # LayoutProps and friends live in .next/types, which a fresh checkout lacks.
+    - npx next typegen
     - npx tsc --noEmit
     - npm test
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH'
+    - when: on_success
 
 build:
   stage: build

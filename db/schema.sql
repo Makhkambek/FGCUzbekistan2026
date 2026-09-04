@@ -29,8 +29,10 @@ CREATE TABLE matches (
   phase ENUM('qualification','playoff') NOT NULL DEFAULT 'qualification',
   red_alliance_id INT NULL,
   blue_alliance_id INT NULL,
-  red1_id INT NOT NULL, red2_id INT NOT NULL, red3_id INT NOT NULL,
-  blue1_id INT NOT NULL, blue2_id INT NOT NULL, blue3_id INT NOT NULL,
+  -- The third slot is empty in the playoff: an alliance is two robots there,
+  -- three in qualification.
+  red1_id INT NOT NULL, red2_id INT NOT NULL, red3_id INT NULL,
+  blue1_id INT NOT NULL, blue2_id INT NOT NULL, blue3_id INT NULL,
   played BOOLEAN NOT NULL DEFAULT FALSE,
   suppression_red INT NOT NULL DEFAULT 0,
   suppression_blue INT NOT NULL DEFAULT 0,

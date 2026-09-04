@@ -45,9 +45,12 @@ export async function mutateAlliances(
     await conn.execute('DELETE FROM alliances');
     for (const a of next) {
       await conn.execute(
+        // pick2 stays in the table and stays empty: an alliance is a captain
+        // and one team, and dropping the column would break a rollback to the
+        // previous build during the event.
         `INSERT INTO alliances (seed, captain_team_id, pick1_team_id, pick2_team_id)
-         VALUES (?, ?, ?, ?)`,
-        [a.seed, a.captain, a.picks[0] ?? null, a.picks[1] ?? null]);
+         VALUES (?, ?, ?, NULL)`,
+        [a.seed, a.captain, a.picks[0] ?? null]);
     }
     await conn.commit();
     return next;
@@ -66,9 +69,12 @@ export async function saveAlliances(state: SelectionState): Promise<void> {
     await conn.execute('DELETE FROM alliances');
     for (const a of state) {
       await conn.execute(
+        // pick2 stays in the table and stays empty: an alliance is a captain
+        // and one team, and dropping the column would break a rollback to the
+        // previous build during the event.
         `INSERT INTO alliances (seed, captain_team_id, pick1_team_id, pick2_team_id)
-         VALUES (?, ?, ?, ?)`,
-        [a.seed, a.captain, a.picks[0] ?? null, a.picks[1] ?? null]);
+         VALUES (?, ?, ?, NULL)`,
+        [a.seed, a.captain, a.picks[0] ?? null]);
     }
     await conn.commit();
   } catch (e) {

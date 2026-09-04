@@ -190,7 +190,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
   }
 
   const locked = !!playoff && playoff.matches > 0;
-  const complete = state.every((a) => a.picks[0] !== null && a.picks[1] !== null);
+  const complete = state.every((a) => a.picks[0] !== null);
   // Unfinished qualification closes the draft exactly like an existing bracket
   // does — captains come from the final ranking, and there is no clean way
   // back once alliances are seated on a ranking that then changes.
@@ -217,7 +217,9 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
                 {locked ? 'Locked — playoff matches already exist' : 'Waiting for qualification to finish'}
               </p>
             ) : (
-              ([0, 1] as const).map((slot) => {
+              // One pick per alliance since 4 September 2026 — the playoff is
+              // two robots a side.
+              ([0] as const).map((slot) => {
                 const currentValue = a.picks[slot];
                 // Pretend this slot is empty before computing its options, so
                 // whatever already sits there still shows up as selected
@@ -227,7 +229,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
 
                 return (
                   <label key={slot} className="block text-sm text-gray-700 space-y-1">
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pick {slot + 1}</span>
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pick</span>
                     <select
                       value={currentValue ?? ''}
                       disabled={busy}

@@ -7,8 +7,14 @@ import type { MatchResultInput } from '../validation';
 export interface MatchRow extends RowDataPacket {
   id: number; match_number: number; phase: 'qualification' | 'playoff';
   red_alliance_id: number | null; blue_alliance_id: number | null;
-  red1_id: number; red2_id: number; red3_id: number;
-  blue1_id: number; blue2_id: number; blue3_id: number;
+  red1_id: number; red2_id: number;
+  /**
+   * Empty in the playoff: an alliance is two robots there, three in
+   * qualification. Every screen drops the empty slot rather than drawing a
+   * dash where no team stands.
+   */
+  red3_id: number | null;
+  blue1_id: number; blue2_id: number; blue3_id: number | null;
   played: number;
   suppression_red: number; suppression_blue: number; extinguisher: number;
   climb_red1: string; climb_red2: string; climb_red3: string;
@@ -53,9 +59,33 @@ async function clearDisplayPointerForPhase(
       WHERE match_id IN (SELECT id FROM matches WHERE phase = ?)`, [phase]);
 }
 
+/**
+ * Makes sure a playoff match may leave its third slot empty.
+ *
+ * This is the migration 2026-09-04-two-robot-alliances.sql, applied by the
+ * site itself. Schema changes here are normally run by hand, and that is
+ * still the better way — but the server's database is reachable only from the
+ * server, the production image carries no scripts, and a bracket that cannot
+ * be built because a column is NOT NULL would take the event down with it.
+ *
+ * It reads the column first and does nothing when it is already nullable, so
+ * it costs one cheap query per bracket build and is safe to call again.
+ */
+export async function ensurePlayoffSlotsNullable(): Promise<boolean> {
+  const pool = getPool();
+  const [rows] = await pool.execute<(RowDataPacket & { IS_NULLABLE: string })[]>(
+    `SELECT IS_NULLABLE FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'matches' AND COLUMN_NAME = 'red3_id'`);
+  if (rows[0]?.IS_NULLABLE === 'YES') return false;
+
+  await pool.query('ALTER TABLE matches MODIFY red3_id INT NULL, MODIFY blue3_id INT NULL');
+  console.warn('matches.red3_id/blue3_id made nullable — two-robot playoff alliances');
+  return true;
+}
+
 export async function insertMatches(rows: {
   matchNumber: number; phase: 'qualification' | 'playoff';
-  red: [number, number, number]; blue: [number, number, number];
+  red: [number, number, number | null]; blue: [number, number, number | null];
   redAllianceId?: number | null; blueAllianceId?: number | null;
 }[], options?: { clearPhase?: 'qualification' | 'playoff' }): Promise<void> {
   const pool = getPool();

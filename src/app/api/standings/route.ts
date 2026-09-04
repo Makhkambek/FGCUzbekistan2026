@@ -53,8 +53,10 @@ export async function GET() {
     const s = scoresById.get(r.id) ?? null;
     return {
       id: r.id, number: r.match_number, phase: r.phase, played: !!r.played,
-      red: [r.red1_id, r.red2_id, r.red3_id].map((id) => names[id] ?? id),
-      blue: [r.blue1_id, r.blue2_id, r.blue3_id].map((id) => names[id] ?? id),
+      red: [r.red1_id, r.red2_id, r.red3_id]
+        .filter((id): id is number => id !== null).map((id) => names[id] ?? id),
+      blue: [r.blue1_id, r.blue2_id, r.blue3_id]
+        .filter((id): id is number => id !== null).map((id) => names[id] ?? id),
       redScore: r.played && s ? s.red : null,
       blueScore: r.played && s ? s.blue : null,
       redSeed: r.red_alliance_id !== null ? allianceSeedById.get(r.red_alliance_id) ?? null : null,
@@ -69,7 +71,9 @@ export async function GET() {
     seed: number; total: number; matchesPlayed: number; teams: string[];
   }[] | null = null;
 
-  if (alliances.length === 3 && alliances.every((a) => a.pick1_team_id !== null && a.pick2_team_id !== null)) {
+  // Two teams to an alliance since 4 September 2026 — a seated alliance is a
+  // captain and one pick.
+  if (alliances.length === 3 && alliances.every((a) => a.pick1_team_id !== null)) {
     const scoresBySeed: { seed: number; score: number }[] = [];
     for (const r of validRows) {
       if (r.phase !== 'playoff' || !r.played) continue;
@@ -93,7 +97,7 @@ export async function GET() {
     }
     allianceStandings = computeAllianceStandings(scoresBySeed).map((a) => {
       const alliance = alliances.find((x) => x.seed === a.seed)!;
-      const teamIds = [alliance.captain_team_id, alliance.pick1_team_id, alliance.pick2_team_id]
+      const teamIds = [alliance.captain_team_id, alliance.pick1_team_id]
         .filter((id): id is number => id !== null);
       return { seed: a.seed, total: a.total, matchesPlayed: a.matchesPlayed, teams: teamIds.map((id) => names[id] ?? String(id)) };
     });

@@ -53,10 +53,10 @@ export function teamResultsFromRows(rows: MatchRow[]): Map<number, TeamMatchResu
     const scores = computeMatchScores(matchRowToInput(row));
 
     const sides = [
-      { teams: [row.red1_id, row.red2_id, row.red3_id],
+      { teams: [row.red1_id, row.red2_id, row.red3_id].filter((id): id is number => id !== null),
         cards: [row.card_red1, row.card_red2, row.card_red3],
         score: scores.red, suppression: row.suppression_red },
-      { teams: [row.blue1_id, row.blue2_id, row.blue3_id],
+      { teams: [row.blue1_id, row.blue2_id, row.blue3_id].filter((id): id is number => id !== null),
         cards: [row.card_blue1, row.card_blue2, row.card_blue3],
         score: scores.blue, suppression: row.suppression_blue },
     ];

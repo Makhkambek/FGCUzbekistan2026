@@ -507,7 +507,6 @@ export default function StandingsTable() {
                 <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200">Played</th>
                 <th className="px-2 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200">Team 1</th>
                 <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200">Team 2</th>
-                <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200">Team 3</th>
               </tr>
             </thead>
             <tbody className="text-base md:text-lg">
@@ -517,7 +516,7 @@ export default function StandingsTable() {
                   <td className="px-2 sm:px-6 py-2 sm:py-3 font-medium">Alliance {a.seed}</td>
                   <td className="px-2 sm:px-6 py-2 sm:py-3"><strong className="font-mono">{a.total}</strong></td>
                   <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-gray-500">{a.matchesPlayed}</td>
-                  {[0, 1, 2].map((n) => (
+                  {[0, 1].map((n) => (
                     <td key={n} className={`px-2 sm:px-6 py-2 sm:py-3 ${n === 0 ? '' : 'hidden sm:table-cell'}`}>
                       {a.teams[n]
                         ? <TeamName name={a.teams[n]} onTeam={setCardTeam} className="text-blue-600" />

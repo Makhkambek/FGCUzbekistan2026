@@ -49,6 +49,19 @@ export const skillsAllianceSchema = z.object({
   alliance: z.enum(['red', 'blue']),
 });
 
+/**
+ * A referee account, as the site itself accepts one.
+ *
+ * The twelve-character floor is the same one scripts/create-admin.ts applies;
+ * it lives here as well because a freshly deployed server has no way to run
+ * that script — the runtime image carries the built server and nothing else.
+ * No spaces in a name: it is typed on a phone at the scoring table, twice.
+ */
+export const accountSchema = z.object({
+  username: z.string().trim().min(1).max(64).regex(/^\S+$/),
+  password: z.string().min(12).max(200),
+});
+
 export const displayStartSchema = z.object({
   matchId: z.number().int().positive(),
 });

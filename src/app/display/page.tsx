@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useSyncExternalStore } from 'react';
 import StandingsTable from '../StandingsTable';
 import { pickNextMatch } from '@/lib/next-match';
 import FullscreenButton from './FullscreenButton';
@@ -177,6 +177,18 @@ export default function DisplayPage() {
   const [allianceStandings, setAllianceStandings] = useState<AllianceStanding[] | null>(null);
   const scale = useCanvasScale();
   const clock = useClock();
+
+  // Two clock layouts, so the hall can be judged on the day: the default puts
+  // the countdown in the header next to the event name, "?clock=big" gives the
+  // digits the whole left half of the header. Read from the URL in an effect —
+  // the server render has no query string and would mismatch.
+  // useSyncExternalStore, not an effect: the server render has no query string,
+  // and this is a read of the browser's own state that never changes afterwards.
+  const bigClock = useSyncExternalStore(
+    () => () => {},
+    () => new URLSearchParams(window.location.search).get('clock') === 'big',
+    () => false,
+  );
 
   const live = data?.phase === 'live' ? data : null;
   const matchClockState = useMatchClock(
@@ -374,7 +386,7 @@ export default function DisplayPage() {
         )}
         {data && data.phase !== 'standings' && (
           <MatchScreen data={data} nextMatchLabel={nextMatchLabel} clock={clock}
-            matchClock={data.phase === 'live' ? matchClockState : null} />
+            matchClock={data.phase === 'live' ? matchClockState : null} bigClock={bigClock} />
         )}
         {live && !sounds.unlocked && (
           <button onClick={sounds.unlock} style={{
@@ -431,21 +443,29 @@ function Badge({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function MatchScreen({ data, nextMatchLabel, clock, matchClock }: {
+function MatchScreen({ data, nextMatchLabel, clock, matchClock, bigClock }: {
   data: Extract<DisplayPayload, { phase: 'live' | 'result' }>;
   nextMatchLabel: string | null; clock: Date | null;
   matchClock: ReturnType<typeof useMatchClock>;
+  bigClock: boolean;
 }) {
   const isResult = data.phase === 'result';
   const result = isResult ? (data as Extract<DisplayPayload, { phase: 'result' }>) : null;
+  // The big clock takes the title's place, so it only applies while a match is
+  // live — a result screen keeps "RESULTS" where the digits would be.
+  const showBigClock = bigClock && data.phase === 'live';
 
   return (
     <>
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 40, marginBottom: 26 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 34 }}>
-          <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 82, lineHeight: 0.9, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-            {isResult ? 'Results' : 'On field'}
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 34, minWidth: 0 }}>
+          {showBigClock
+            ? <BigMatchCountdown clock={matchClock} />
+            : (
+              <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 82, lineHeight: 0.9, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                {isResult ? 'Results' : 'On field'}
+              </div>
+            )}
           <Badge label="Match" value={matchLabel(data.matchPhase, data.matchNumber)} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 30 }}>
@@ -457,7 +477,7 @@ function MatchScreen({ data, nextMatchLabel, clock, matchClock }: {
               {data.matchPhase === 'playoff' ? 'Playoff' : 'Qualification'} · Tashkent
             </div>
           </div>
-          {data.phase === 'live' && <MatchCountdown clock={matchClock} />}
+          {data.phase === 'live' && !showBigClock && <MatchCountdown clock={matchClock} />}
         </div>
       </div>
 
@@ -515,6 +535,44 @@ function MatchCountdown({ clock }: { clock: ReturnType<typeof useMatchClock> }) 
       <span style={{
         fontFamily: F_MONO, fontSize: 74, fontWeight: 700, lineHeight: 1,
         letterSpacing: '0.02em', color: theme.text, fontVariantNumeric: 'tabular-nums',
+      }}>
+        {clock?.label ?? '2:30'}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The alternative clock: the countdown takes the place of the "ON FIELD"
+ * title, so the digits get the height that decoration was using instead of
+ * pushing the alliance panels off the fixed 1920x1080 canvas. Same colours and
+ * same endgame rules as the header version — only the size differs.
+ */
+function BigMatchCountdown({ clock }: { clock: ReturnType<typeof useMatchClock> }) {
+  const period = clock?.period ?? 'pre';
+  const theme = period === 'endgame'
+    ? { digits: 'oklch(0.86 0.17 82)', caption: 'Endgame', captionColor: 'oklch(0.86 0.17 82)' }
+    : period === 'over'
+      ? { digits: 'oklch(0.72 0.2 25)', caption: 'Time', captionColor: 'oklch(0.72 0.2 25)' }
+      : period === 'pre'
+        ? { digits: 'oklch(1 0 0 / 0.55)', caption: 'Ready', captionColor: 'oklch(1 0 0 / 0.6)' }
+        : { digits: 'oklch(1 0 0)', caption: 'On field', captionColor: 'oklch(1 0 0 / 0.8)' };
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column',
+      animation: period === 'endgame' ? 'fgcPulse 1s ease-in-out infinite' : undefined,
+    }}>
+      <span style={{
+        fontFamily: F_MONO, fontSize: 22, fontWeight: 700, letterSpacing: '0.32em',
+        textTransform: 'uppercase', color: theme.captionColor,
+      }}>
+        {theme.caption}
+      </span>
+      <span style={{
+        fontFamily: F_MONO, fontSize: 132, fontWeight: 700, lineHeight: 0.92,
+        letterSpacing: '-0.01em', color: theme.digits, fontVariantNumeric: 'tabular-nums',
+        textShadow: 'oklch(0.25 0.08 340 / 0.45) 0px 6px 26px',
       }}>
         {clock?.label ?? '2:30'}
       </span>

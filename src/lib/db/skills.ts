@@ -65,8 +65,13 @@ export async function replaceAttempts(
   try {
     await conn.beginTransaction();
 
+    // FOR UPDATE, not a plain read: this transaction is about to delete every
+    // row, so it must see the latest committed data rather than the snapshot
+    // it opened with, and a referee saving a score at the same moment must
+    // queue behind it instead of slipping in between the check and the
+    // delete.
     const [played] = await conn.execute<(RowDataPacket & { n: number })[]>(
-      'SELECT COUNT(*) AS n FROM skills_attempts WHERE played = 1');
+      'SELECT COUNT(*) AS n FROM skills_attempts WHERE played = 1 FOR UPDATE');
     if ((played[0]?.n ?? 0) > 0) {
       await conn.rollback();
       throw new Error('Some skills attempts have already been scored — the running order cannot be rebuilt');
@@ -75,7 +80,20 @@ export async function replaceAttempts(
     await conn.execute(
       `UPDATE display_state SET phase = 'standings', match_id = NULL, skills_attempt_id = NULL
         WHERE skills_attempt_id IS NOT NULL`);
-    await conn.execute('DELETE FROM skills_attempts');
+
+    // Only the unscored rows go, and then the table has to be empty. The
+    // count above is a snapshot read: a referee saving a score in the very
+    // same second commits after it and would be wiped by an unqualified
+    // DELETE, with this rebuild still reporting success. Deleting what is
+    // safe to delete and refusing when anything survives makes the referee's
+    // save win the race, whichever order the two land in.
+    await conn.execute('DELETE FROM skills_attempts WHERE played = 0');
+    const [survivors] = await conn.execute<(RowDataPacket & { n: number })[]>(
+      'SELECT COUNT(*) AS n FROM skills_attempts FOR UPDATE');
+    if ((survivors[0]?.n ?? 0) > 0) {
+      await conn.rollback();
+      throw new Error('Some skills attempts have already been scored — the running order cannot be rebuilt');
+    }
 
     const slots = skillsAttemptOrder(teamIds, attemptsPerTeam);
     let position = 0;

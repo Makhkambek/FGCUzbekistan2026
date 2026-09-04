@@ -43,6 +43,12 @@ export function buildSkillsPayload(
   const preFoul = ceilDiv(balls * climbMultiplierHundredths([attempt.climb]), 100)
     + attempt.extinguisher;
 
+  // A red card zeroes the attempt outright, so the whole of it is not a foul
+  // deduction: reporting score - preFoul there would put "own fouls -60" on
+  // the projector beside a team that committed none. The card gets its own
+  // word on the screen instead.
+  const redCard = attempt.card === 'red';
+
   return {
     phase: live ? 'skills-live' : 'skills-result',
     round: attempt.round,
@@ -51,7 +57,8 @@ export function buildSkillsPayload(
     red: soloLineup(attempt.alliance === 'red' ? teamName : null),
     blue: soloLineup(attempt.alliance === 'blue' ? teamName : null),
     score: live ? null : score,
-    penalty: score - preFoul,
+    redCard,
+    penalty: redCard ? 0 : score - preFoul,
     suppression: attempt.suppression,
     humanBalls: attempt.human_balls,
     humanPoints: attempt.human_balls * HUMAN_BALL_POINTS,

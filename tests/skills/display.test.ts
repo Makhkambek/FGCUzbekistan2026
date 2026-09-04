@@ -48,6 +48,25 @@ describe('the skills screen is shaped like a match screen', () => {
     expect(buildSkillsPayload(state('result'), attempt(), 'Uzbekistan').penalty).toBe(0);
   });
 
+  it('does not dress a red card up as a foul deduction', () => {
+    // The card zeroes the attempt; nothing was taken off it by fouls. Without
+    // this the screen reports "own fouls -60" for a team that committed none.
+    const p = buildSkillsPayload(state('result'), attempt({ card: 'red' }), 'Uzbekistan');
+    expect(p.score).toBe(0);
+    expect(p.penalty).toBe(0);
+    expect(p.redCard).toBe(true);
+  });
+
+  it('says there is no card when there is none', () => {
+    expect(buildSkillsPayload(state('result'), attempt(), 'Uzbekistan').redCard).toBe(false);
+  });
+
+  it('a yellow card leaves the attempt alone', () => {
+    const p = buildSkillsPayload(state('result'), attempt({ card: 'yellow' }), 'Uzbekistan');
+    expect(p.redCard).toBe(false);
+    expect(p.score).toBe(44);
+  });
+
   it('holds the score back while the attempt is still running', () => {
     const p = buildSkillsPayload(state('live'), attempt(), 'Uzbekistan');
     expect(p.phase).toBe('skills-live');

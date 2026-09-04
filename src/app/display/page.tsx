@@ -34,7 +34,7 @@ type DisplayPayload =
       round: number; teamName: string; alliance: 'red' | 'blue';
       red: AllianceLineup; blue: AllianceLineup;
       score: number | null; suppression: number; humanBalls: number; humanPoints: number;
-      climbMultiplier: number; extinguisher: number; penalty: number;
+      climbMultiplier: number; extinguisher: number; penalty: number; redCard: boolean;
       startedAt: number | null; serverNow: number;
     };
 
@@ -415,7 +415,8 @@ export default function DisplayPage() {
           <PlayoffScreen standings={allianceStandings!} nextMatchLabel={nextMatchLabel} clock={clock} />
         )}
         {skillsScreenData && (
-          <SkillsScreen data={skillsScreenData} clock={clock} matchClock={matchClockState} />
+          <SkillsScreen data={skillsScreenData} nextMatchLabel={nextMatchLabel}
+            clock={clock} matchClock={matchClockState} />
         )}
         {matchScreenData && (
           <MatchScreen data={matchScreenData} nextMatchLabel={nextMatchLabel} clock={clock}
@@ -684,8 +685,9 @@ function CenterMatchCountdown({ clock }: { clock: ReturnType<typeof useMatchCloc
  * plays from, and every slot with nobody in it — including the whole opposing
  * alliance — is a dash.
  */
-function SkillsScreen({ data, clock, matchClock }: {
+function SkillsScreen({ data, nextMatchLabel, clock, matchClock }: {
   data: Extract<DisplayPayload, { phase: 'skills-live' | 'skills-result' }>;
+  nextMatchLabel: string | null;
   clock: Date | null;
   matchClock: ReturnType<typeof useMatchClock>;
 }) {
@@ -719,6 +721,15 @@ function SkillsScreen({ data, clock, matchClock }: {
             {isResult ? 'Results' : 'On field'}
           </div>
           <Badge label="Skills" value={`Attempt ${data.round}`} />
+          {isResult && data.redCard && (
+            <div style={{
+              padding: '8px 22px', borderRadius: 10, background: 'oklch(0.55 0.22 25)',
+              fontFamily: F_HEAD, fontWeight: 700, fontSize: 40, lineHeight: 1,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+            }}>
+              Red card
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 30 }}>
           <div style={{ ...OVER_GRADIENT, textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -745,7 +756,10 @@ function SkillsScreen({ data, clock, matchClock }: {
           rows={SKILLS_ROWS} shared={sharedFor('blue')} />
       </div>
 
-      <Ticker label={null} clock={clock} />
+      {/* Skills may be run with matches still to come, and the ticker saying
+          "no matches remaining" under a skills attempt would be a lie the
+          announcer reads out. */}
+      <Ticker label={nextMatchLabel} clock={clock} />
     </>
   );
 }

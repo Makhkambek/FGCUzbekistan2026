@@ -160,6 +160,8 @@ export interface DisplaySkills {
   extinguisher: number;
   /** What the fouls took off, as a negative — 0 when there were none. */
   penalty: number;
+  /** A red card zeroes the attempt; the screen says so rather than implying fouls. */
+  redCard: boolean;
   startedAt: number | null;
   serverNow: number;
 }

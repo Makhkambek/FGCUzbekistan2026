@@ -316,23 +316,17 @@ export default function DisplayPage() {
         <div style={{ ...gridTexture(0.05), position: 'fixed' }} />
         <FullscreenButton />
         <header style={{ position: 'relative', padding: '26px 48px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 32 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontFamily: F_MONO, fontSize: 20, fontWeight: 600, letterSpacing: '0.44em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.95)' }}>
-              Uzbekistan
-            </div>
+          {/* The same heading the public board carries, word for word: the
+              hall sees both screens and they should name the same event. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, color: 'oklch(1 0 0)' }}>
             <div style={{
-              fontFamily: F_HEAD, fontWeight: 700, fontSize: 62, lineHeight: 0.9, letterSpacing: '0.04em',
-              textTransform: 'uppercase', color: 'oklch(1 0 0)', textShadow: 'oklch(0.25 0.08 340 / 0.5) 0px 4px 24px',
+              fontFamily: F_SANS, fontWeight: 700, fontSize: 52, lineHeight: 1.05,
+              textShadow: 'oklch(0.25 0.08 340 / 0.5) 0px 4px 24px',
             }}>
-              Qualification
+              2026 <em style={{ fontStyle: 'normal' }}>FIRST</em> Global Challenge Uzbekistan
             </div>
-          </div>
-          <div style={{ ...OVER_GRADIENT, textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3, color: 'oklch(1 0 0)' }}>
-            <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 30, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-              FGC Uzbekistan 2026
-            </div>
-            <div style={{ fontFamily: F_MONO, fontSize: 16, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.88)' }}>
-              Igniting Innovation · Tashkent
+            <div style={{ fontFamily: F_SANS, fontSize: 24, color: 'oklch(1 0 0 / 0.85)' }}>
+              5–6 September 2026 in Tashkent
             </div>
           </div>
         </header>
@@ -942,26 +936,21 @@ function PlayoffScreen({ standings, nextMatchLabel, clock }: {
 }) {
   return (
     <>
-      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 26 }}>
-        <div style={{ fontFamily: F_MONO, fontSize: 22, fontWeight: 600, letterSpacing: '0.44em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.95)' }}>
-          Uzbekistan
-        </div>
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginBottom: 26 }}>
+        {/* The board's heading, on the projector too — one event, one name.
+            The phase moves to the line underneath, where it still tells the
+            hall what it is looking at. */}
         <div style={{
-          fontFamily: F_HEAD, fontWeight: 700, fontSize: 74, lineHeight: 0.9, letterSpacing: '0.04em', textTransform: 'uppercase',
-          marginTop: 6, textShadow: 'oklch(0.25 0.08 340 / 0.5) 0px 4px 24px',
+          fontFamily: F_SANS, fontWeight: 700, fontSize: 52, lineHeight: 1.05, textAlign: 'center',
+          textShadow: 'oklch(0.25 0.08 340 / 0.5) 0px 4px 24px',
         }}>
-          Playoffs
+          2026 <em style={{ fontStyle: 'normal' }}>FIRST</em> Global Challenge Uzbekistan
+        </div>
+        <div style={{ fontFamily: F_SANS, fontSize: 24, color: 'oklch(1 0 0 / 0.85)' }}>
+          Playoffs · 5–6 September 2026 in Tashkent
         </div>
 
         <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', alignItems: 'center', gap: 24 }}>
-          <div style={{ ...OVER_GRADIENT, textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 30, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-              FGC Uzbekistan 2026
-            </div>
-            <div style={{ fontFamily: F_MONO, fontSize: 16, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.88)' }}>
-              Tashkent
-            </div>
-          </div>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', borderRadius: 10,
             background: 'oklch(1 0 0 / 0.14)', border: '1px solid oklch(1 0 0 / 0.5)',

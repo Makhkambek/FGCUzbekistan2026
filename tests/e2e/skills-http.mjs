@@ -11,9 +11,9 @@
  *     const p='admin.'+(Date.now()+3600000);\
  *     console.log(p+'.'+c.createHmac('sha256',s).update(p).digest('base64url'))" > /tmp/fgc-cookie.txt
  *   curl -s localhost:3000/api/standings > /tmp/fgc-standings-before.json
- *   DIR=/tmp node tests/e2e/skills-http.js
+ *   DIR=/tmp node tests/e2e/skills-http.mjs
  */
-const fs = require('fs');
+import fs from 'node:fs';
 const DIR = process.env.DIR ?? '/tmp';
 const BASE = process.env.BASE ?? 'http://localhost:3000';
 const COOKIE = 'fgc_session=' + fs.readFileSync(DIR + '/fgc-cookie.txt', 'utf8').trim();

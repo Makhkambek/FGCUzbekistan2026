@@ -11,14 +11,20 @@ interface MatchListRow {
 export default function MatchList({ matches }: { matches: MatchListRow[] }) {
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [tab, setTab] = useState<'qualification' | 'finals'>('qualification');
 
   const q = query.trim().toLowerCase();
   const isHit = (m: MatchListRow) =>
     q.length > 0 && (m.red.some((n) => n.toLowerCase().includes(q)) || m.blue.some((n) => n.toLowerCase().includes(q)));
-  const totalHits = q ? matches.filter(isHit).length : 0;
 
   const playoffMatches = matches.filter((m) => m.phase === 'playoff');
   const qualMatches = matches.filter((m) => m.phase !== 'playoff');
+  // The Finals tab is only offered once a bracket exists, and a referee left
+  // standing on it after a rebuild falls back rather than staring at nothing.
+  const activeTab = tab === 'finals' && playoffMatches.length === 0 ? 'qualification' : tab;
+  const visible = activeTab === 'finals' ? playoffMatches : qualMatches;
+  // Counted over the tab in front of you, not over every match in the event.
+  const totalHits = q ? visible.filter(isHit).length : 0;
   // Once a bracket exists the event has moved on: a qualification match left
   // unplayed (or reset for a late correction) must not be flagged as "next"
   // ahead of the playoff, and must not be flagged at all once the playoff is
@@ -31,6 +37,24 @@ export default function MatchList({ matches }: { matches: MatchListRow[] }) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="flex items-center gap-1 border-b border-gray-200 px-3 sm:px-4">
+        <button
+          onClick={() => setTab('qualification')}
+          className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+            activeTab === 'qualification' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+          }`}>
+          Qualification ({qualMatches.length})
+        </button>
+        {playoffMatches.length > 0 && (
+          <button
+            onClick={() => setTab('finals')}
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+              activeTab === 'finals' ? 'text-amber-600 border-amber-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+            }`}>
+            Finals ({playoffMatches.length})
+          </button>
+        )}
+      </div>
       <div className="flex items-center justify-between gap-3 px-3 sm:px-4 py-3 border-b border-gray-200">
         <div className="text-xs text-gray-400">
           {q.length > 0 && <span className="font-semibold text-gray-600">Found {totalHits}</span>}
@@ -53,18 +77,20 @@ export default function MatchList({ matches }: { matches: MatchListRow[] }) {
           )}
         </div>
       </div>
-      {playoffMatches.length > 0 && (
-        <MatchGroup title="Playoffs" rows={playoffMatches} highlight isHit={isHit} nextId={nextId} onOpen={openMatch} />
-      )}
-      <MatchGroup title="Qualification" rows={qualMatches} isHit={isHit} nextId={nextId} onOpen={openMatch} />
+      {activeTab === 'finals'
+        ? <MatchGroup title="Finals" rows={visible} highlight roomy isHit={isHit} nextId={nextId} onOpen={openMatch} />
+        : <MatchGroup title="Qualification" rows={visible} isHit={isHit} nextId={nextId} onOpen={openMatch} />}
     </div>
   );
 }
 
-function MatchGroup({ title, rows, highlight = false, isHit, nextId, onOpen }: {
+function MatchGroup({ title, rows, highlight = false, roomy = false, isHit, nextId, onOpen }: {
   title: string;
   rows: MatchListRow[];
   highlight?: boolean;
+  /** Three finals in a table sized for twelve qualification rows looks broken;
+   *  these rows are given the room the shorter list can afford. */
+  roomy?: boolean;
   isHit: (m: MatchListRow) => boolean;
   nextId: number | undefined;
   onOpen: (id: number) => void;
@@ -98,13 +124,13 @@ function MatchGroup({ title, rows, highlight = false, isHit, nextId, onOpen }: {
               const hit = isHit(m);
               return (
                 <tr key={m.id} onClick={() => onOpen(m.id)}
-                  className={`cursor-pointer transition-colors ${
+                  className={`cursor-pointer transition-colors ${roomy ? '[&>td]:py-5' : ''} ${
                     hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset'
                       : isNext ? 'bg-blue-50 border-l-4 border-l-blue-500'
                         : 'hover:bg-gray-50'
                   }`}>
                   <td className="px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap">
-                    <span className="font-mono font-black text-gray-900 text-xs sm:text-sm">{phaseLabel}</span>
+                    <span className={`font-mono font-black text-gray-900 ${roomy ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}>{phaseLabel}</span>
                     {isNext && (
                       <span className="ml-1.5 text-[9px] font-black bg-blue-600 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider">
                         Next
@@ -112,15 +138,15 @@ function MatchGroup({ title, rows, highlight = false, isHit, nextId, onOpen }: {
                     )}
                   </td>
                   <td className="px-3 sm:px-4 py-2 sm:py-2.5">
-                    <span className={`text-red-600 text-xs sm:text-sm ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
+                    <span className={`text-red-600 ${roomy ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'} ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
                   </td>
                   <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-center">
                     {m.played
-                      ? <span className="font-mono font-bold text-gray-900 text-xs sm:text-sm">{m.redScore} : {m.blueScore}</span>
+                      ? <span className={`font-mono font-bold text-gray-900 ${roomy ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}>{m.redScore} : {m.blueScore}</span>
                       : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-3 sm:px-4 py-2 sm:py-2.5">
-                    <span className={`text-blue-600 text-xs sm:text-sm ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
+                    <span className={`text-blue-600 ${roomy ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'} ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
                   </td>
                   <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-center">
                     {m.played

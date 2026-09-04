@@ -11,10 +11,13 @@ interface Match {
   red: string[]; blue: string[]; redScore: number | null; blueScore: number | null;
 }
 
-function MatchSection({ title, rows, highlight = false, isHit }: {
+function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: {
   title: string;
   rows: Match[];
   highlight?: boolean;
+  /** Three finals in a table built for twelve qualification rows leaves half
+   *  the screen blank; the shorter list can afford bigger type and more air. */
+  roomy?: boolean;
   isHit: (m: Match) => boolean;
 }) {
   return (
@@ -23,7 +26,7 @@ function MatchSection({ title, rows, highlight = false, isHit }: {
         {title}
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[420px] text-sm">
+        <table className={`w-full text-sm ${roomy ? 'min-w-[520px]' : 'min-w-[420px]'}`}>
           <thead>
             <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
               <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">Match</th>
@@ -39,20 +42,20 @@ function MatchSection({ title, rows, highlight = false, isHit }: {
               const blueWins = m.played && m.redScore !== null && m.blueScore !== null && m.blueScore > m.redScore;
               const hit = isHit(m);
               return (
-                <tr key={m.id} className={hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : 'hover:bg-gray-50'}>
+                <tr key={m.id} className={`${roomy ? '[&>td]:py-7 sm:[&>td]:py-12' : ''} ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : 'hover:bg-gray-50'}`}>
                   <td className="px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap">
-                    <span className="font-mono font-black text-gray-900 text-xs sm:text-sm">{phaseLabel}</span>
+                    <span className={`font-mono font-black text-gray-900 ${roomy ? 'text-xl sm:text-3xl' : 'text-xs sm:text-sm'}`}>{phaseLabel}</span>
                   </td>
                   <td className="px-3 sm:px-4 py-2 sm:py-2.5">
-                    <span className={`text-red-600 text-xs sm:text-sm ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
+                    <span className={`text-red-600 ${roomy ? 'text-base sm:text-xl' : 'text-xs sm:text-sm'} ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
                   </td>
                   <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-center">
                     {m.played
-                      ? <span className="font-mono font-bold text-gray-900 text-xs sm:text-sm">{m.redScore} : {m.blueScore}</span>
+                      ? <span className={`font-mono font-bold text-gray-900 ${roomy ? 'text-xl sm:text-3xl' : 'text-xs sm:text-sm'}`}>{m.redScore} : {m.blueScore}</span>
                       : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-right">
-                    <span className={`text-blue-600 text-xs sm:text-sm ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
+                    <span className={`text-blue-600 ${roomy ? 'text-base sm:text-xl' : 'text-xs sm:text-sm'} ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
                   </td>
                 </tr>
               );
@@ -250,7 +253,7 @@ export default function StandingsTable() {
             </div>
           </div>
           {activeView === 'finals'
-            ? <MatchSection title="Finals" rows={visibleMatches} highlight isHit={isHit} />
+            ? <MatchSection title="Finals" rows={visibleMatches} highlight roomy isHit={isHit} />
             : <MatchSection title="Qualification" rows={visibleMatches} isHit={isHit} />}
         </div>
       )}

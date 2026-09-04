@@ -60,6 +60,20 @@ CREATE TABLE matches (
 
 -- Single-row table tracking what the public display screen should show.
 -- id is pinned to 1 so there is always exactly one state to read/update.
+-- Automatic rollback point: before anything deletes or replaces matches, the
+-- phase's rows are copied here verbatim, so a reset can be undone exactly
+-- rather than approximately.
+CREATE TABLE match_snapshots (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  phase ENUM('qualification','playoff') NOT NULL,
+  reason VARCHAR(32) NOT NULL,
+  match_count INT NOT NULL,
+  played_count INT NOT NULL,
+  rows_json JSON NOT NULL,
+  INDEX idx_phase_created (phase, created_at)
+) ENGINE=InnoDB;
+
 CREATE TABLE display_state (
   id TINYINT PRIMARY KEY DEFAULT 1,
   phase ENUM('standings','live','result') NOT NULL DEFAULT 'standings',

@@ -1,6 +1,7 @@
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import type { PoolConnection } from 'mysql2/promise';
 import { getPool } from './pool';
+import { takeSnapshot } from './snapshots';
 import type { MatchResultInput } from '../validation';
 
 export interface MatchRow extends RowDataPacket {
@@ -66,6 +67,7 @@ export async function insertMatches(rows: {
     // insert below fails, the rollback restores the matches that were about
     // to be replaced instead of leaving the phase empty.
     if (options?.clearPhase) {
+      await takeSnapshot(conn, options.clearPhase, 'regenerate');
       await clearDisplayPointerForPhase(conn, options.clearPhase);
       await conn.execute('DELETE FROM matches WHERE phase = ?', [options.clearPhase]);
     }
@@ -96,6 +98,9 @@ export async function deleteMatchesByPhase(phase: 'qualification' | 'playoff'): 
   const conn = await getPool().getConnection();
   try {
     await conn.beginTransaction();
+    // Copy first, inside the same transaction: a reset is the one action here
+    // that throws away a day of scoring, and until now it was final.
+    await takeSnapshot(conn, phase, 'reset');
     await clearDisplayPointerForPhase(conn, phase);
     await conn.execute('DELETE FROM matches WHERE phase = ?', [phase]);
     await conn.commit();
@@ -163,10 +168,21 @@ export async function saveMatchResult(id: number, r: MatchResultInput): Promise<
  * (same values db/schema.sql assigns a freshly generated match) without
  * touching its match_number, phase, or team assignments — a judge can
  * re-enter the result afterwards without regenerating the schedule.
+ *
+ * The whole phase is snapshotted first. The cleared row is the point, but
+ * restoring the phase as a unit is what makes the rollback exact rather than
+ * approximate.
  */
 export async function resetMatchResult(id: number): Promise<boolean> {
-  const [result] = await getPool().execute<ResultSetHeader>(
-    `UPDATE matches SET played = FALSE,
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+    const [target] = await conn.execute<MatchRow[]>(
+      'SELECT phase FROM matches WHERE id = ?', [id]);
+    if (!target[0]) { await conn.rollback(); return false; }
+    await takeSnapshot(conn, target[0].phase, 'match-reset');
+    const [result] = await conn.execute<ResultSetHeader>(
+      `UPDATE matches SET played = FALSE,
        suppression_red = 0, suppression_blue = 0, extinguisher = 0,
        climb_red1 = 'none', climb_red2 = 'none', climb_red3 = 'none',
        climb_blue1 = 'none', climb_blue2 = 'none', climb_blue3 = 'none',
@@ -176,6 +192,13 @@ export async function resetMatchResult(id: number): Promise<boolean> {
        card_red1 = 'none', card_red2 = 'none', card_red3 = 'none',
        card_blue1 = 'none', card_blue2 = 'none', card_blue3 = 'none'
      WHERE id = ?`,
-    [id]);
-  return result.affectedRows > 0;
+      [id]);
+    await conn.commit();
+    return result.affectedRows > 0;
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
 }

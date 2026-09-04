@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { scheduleShape, evenMatchesPerTeam } from '@/lib/schedule/generate';
 
@@ -15,6 +15,51 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [resetting, setResetting] = useState(false);
+  // Every destructive action here now leaves a rollback point behind. The page
+  // has to show it, or nobody will know it exists at the moment they need it.
+  const [snapshot, setSnapshot] = useState<
+    { matchCount: number; playedCount: number; createdAt: number; reason: string } | null>(null);
+  const [restoreBlocked, setRestoreBlocked] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+
+  const loadSnapshot = useCallback(() => {
+    fetch('/api/admin/schedule/restore')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setSnapshot(data.snapshot);
+        setRestoreBlocked(data.blockReason);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { loadSnapshot(); }, [loadSnapshot]);
+
+  async function restore(force = false) {
+    if (restoring) return;
+    const question = force
+      ? `${restoreBlocked}\n\nRestore anyway and lose those results?`
+      : 'Put the qualification schedule back exactly as it was before the last reset, '
+        + 'including every score that had been entered?';
+    if (!window.confirm(question)) return;
+    setMessage('');
+    setRestoring(true);
+    try {
+      const res = await fetch(`/api/admin/schedule/restore${force ? '?force=1' : ''}`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMessage(`Restored ${data.matches} matches exactly as they were`);
+        loadSnapshot();
+        router.refresh();
+      } else {
+        setMessage(data.error ?? `Could not restore (status ${res.status})`);
+      }
+    } catch {
+      setMessage('Could not restore — check the connection and try again');
+    } finally {
+      setRestoring(false);
+    }
+  }
 
   async function generate() {
     // Reset asks twice; Generate asked nothing, yet it deletes and replaces
@@ -94,6 +139,31 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
             </p>
           )
       )}
+      {snapshot && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 space-y-1.5">
+          <p className="text-sm text-blue-900">
+            <strong>Rollback point:</strong> {snapshot.matchCount} match{snapshot.matchCount === 1 ? '' : 'es'}
+            {snapshot.playedCount > 0 && `, ${snapshot.playedCount} of them scored`}
+            {' '}— saved automatically at {new Date(snapshot.createdAt).toLocaleTimeString()} before the last
+            {snapshot.reason === 'regenerate' ? ' regeneration' : snapshot.reason === 'match-reset' ? ' cleared result' : ' reset'}.
+          </p>
+          {restoreBlocked ? (
+            <div className="space-y-1.5">
+              <p className="text-xs text-blue-800">{restoreBlocked}</p>
+              <button onClick={() => restore(true)} disabled={restoring}
+                className="px-3 py-1.5 rounded-md bg-white text-red-600 text-xs font-bold border border-red-300 hover:bg-red-50 disabled:opacity-50">
+                {restoring ? 'Restoring…' : 'Restore anyway'}
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => restore()} disabled={restoring}
+              className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50">
+              {restoring ? 'Restoring…' : 'Restore it exactly as it was'}
+            </button>
+          )}
+        </div>
+      )}
+
       {message && <p className="text-sm text-gray-700">{message}</p>}
       <p className="text-xs text-gray-500">
         The schedule can only be regenerated while no match has been played. Reset deletes all

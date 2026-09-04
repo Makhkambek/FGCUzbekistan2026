@@ -139,6 +139,15 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
             </p>
           )
       )}
+      {/* Shown even when empty: a safety net nobody knows about is not a safety
+          net, and the first thing an operator wants to know before pressing
+          Reset is whether anything will catch them. */}
+      {hasSchedule && !snapshot && (
+        <p className="text-xs text-gray-500">
+          No rollback point yet — one is saved automatically before a reset, a
+          regeneration, or a cleared result, and can be restored from here.
+        </p>
+      )}
       {snapshot && (
         <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 space-y-1.5">
           <p className="text-sm text-blue-900">

@@ -66,7 +66,7 @@ function MatchSection({ title, rows, highlight = false, isHit }: {
 
 export default function StandingsTable() {
   const [data, setData] = useState<{ standings: Standing[]; matches: Match[] } | null>(null);
-  const [view, setView] = useState<'standings' | 'matches'>('standings');
+  const [view, setView] = useState<'standings' | 'matches' | 'finals'>('standings');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [query, setQuery] = useState('');
   // The 10s polls are not guaranteed to come back in order: a delayed request
@@ -141,9 +141,16 @@ export default function StandingsTable() {
   const q = query.trim().toLowerCase();
   const isHit = (m: Match) =>
     q.length > 0 && (m.red.some((n) => n.toLowerCase().includes(q)) || m.blue.some((n) => n.toLowerCase().includes(q)));
-  const totalHits = q ? data.matches.filter(isHit).length : 0;
   const playoffMatches = data.matches.filter((m) => m.phase === 'playoff');
   const qualMatches = data.matches.filter((m) => m.phase !== 'playoff');
+  // The Finals tab disappears if the bracket is rebuilt away underneath a
+  // spectator who is standing on it; without this they would be left staring
+  // at an empty table with no tab highlighted.
+  const activeView = view === 'finals' && playoffMatches.length === 0 ? 'matches' : view;
+  const visibleMatches = activeView === 'finals' ? playoffMatches : qualMatches;
+  // Counted over what this tab actually shows: "Found 3" while looking at a
+  // list of one is worse than no count at all.
+  const totalHits = q ? visibleMatches.filter(isHit).length : 0;
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -152,7 +159,7 @@ export default function StandingsTable() {
           <button
             onClick={() => setView('standings')}
             className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
-              view === 'standings' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+              activeView === 'standings' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
             }`}
           >
             Team rankings
@@ -160,11 +167,23 @@ export default function StandingsTable() {
           <button
             onClick={() => setView('matches')}
             className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
-              view === 'matches' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+              activeView === 'matches' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
             }`}
           >
             Matches
           </button>
+          {/* The finals get their own tab, and only once they exist — an empty
+              tab through the whole qualification day is just a dead end. */}
+          {playoffMatches.length > 0 && (
+            <button
+              onClick={() => setView('finals')}
+              className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+                activeView === 'finals' ? 'text-amber-600 border-amber-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+              }`}
+            >
+              Finals
+            </button>
+          )}
         </div>
         {lastUpdate && (
           stale
@@ -175,7 +194,7 @@ export default function StandingsTable() {
         )}
       </div>
 
-      {view === 'standings' ? (
+      {activeView === 'standings' ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[320px] border-collapse">
             <thead>
@@ -230,10 +249,9 @@ export default function StandingsTable() {
               )}
             </div>
           </div>
-          {playoffMatches.length > 0 && (
-            <MatchSection title="Playoffs" rows={playoffMatches} highlight isHit={isHit} />
-          )}
-          <MatchSection title="Qualification" rows={qualMatches} isHit={isHit} />
+          {activeView === 'finals'
+            ? <MatchSection title="Finals" rows={visibleMatches} highlight isHit={isHit} />
+            : <MatchSection title="Qualification" rows={visibleMatches} isHit={isHit} />}
         </div>
       )}
     </div>

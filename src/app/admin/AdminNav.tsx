@@ -8,6 +8,7 @@ const SECTIONS = [
   { href: '/admin/schedule', label: 'Schedule' },
   { href: '/admin/matches', label: 'Matches' },
   { href: '/admin/alliances', label: 'Alliances & Playoffs' },
+  { href: '/admin/skills', label: 'Skills' },
 ];
 
 export default function AdminNav() {

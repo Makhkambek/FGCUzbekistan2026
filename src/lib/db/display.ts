@@ -6,6 +6,7 @@ import { COUNTDOWN_MS } from '../match-clock';
 interface DisplayStateRow extends RowDataPacket {
   phase: DisplayPhase;
   match_id: number | null;
+  skills_attempt_id: number | null;
   started_at: Date | null;
   server_now: Date;
 }
@@ -16,12 +17,19 @@ export async function getDisplayState(): Promise<DisplayState> {
   // clock in a second round trip would fold the gap between the two queries
   // into the match time.
   const [rows] = await getPool().execute<DisplayStateRow[]>(
-    'SELECT phase, match_id, started_at, NOW(3) AS server_now FROM display_state WHERE id = 1');
+    `SELECT phase, match_id, skills_attempt_id, started_at, NOW(3) AS server_now
+       FROM display_state WHERE id = 1`);
   const row = rows[0];
-  if (!row) return { phase: 'standings', matchId: null, startedAt: null, serverNow: Date.now() };
+  if (!row) {
+    return {
+      phase: 'standings', matchId: null, skillsAttemptId: null,
+      startedAt: null, serverNow: Date.now(),
+    };
+  }
   return {
     phase: row.phase,
     matchId: row.match_id,
+    skillsAttemptId: row.skills_attempt_id,
     startedAt: row.started_at ? row.started_at.getTime() : null,
     serverNow: row.server_now.getTime(),
   };
@@ -32,10 +40,13 @@ export async function getDisplayState(): Promise<DisplayState> {
  * and a result or the standings must never leave a stale countdown behind.
  * The clock is started separately, by startMatchClock.
  */
-export async function setDisplayState(phase: DisplayPhase, matchId: number | null): Promise<void> {
+export async function setDisplayState(
+  phase: DisplayPhase, matchId: number | null, skillsAttemptId: number | null = null,
+): Promise<void> {
   await getPool().execute(
-    'UPDATE display_state SET phase = ?, match_id = ?, started_at = NULL WHERE id = 1',
-    [phase, matchId]);
+    `UPDATE display_state SET phase = ?, match_id = ?, skills_attempt_id = ?, started_at = NULL
+      WHERE id = 1`,
+    [phase, matchId, skillsAttemptId]);
 }
 
 /**
@@ -57,5 +68,15 @@ export async function startMatchClock(matchId: number): Promise<boolean> {
         SET started_at = NOW(3) + INTERVAL ? MICROSECOND
       WHERE id = 1 AND phase = 'live' AND match_id = ?`,
     [COUNTDOWN_MS * 1000, matchId]);
+  return res.affectedRows > 0;
+}
+
+/** Same clock, same 3-2-1, for the skills attempt already on screen. */
+export async function startSkillsClock(attemptId: number): Promise<boolean> {
+  const [res] = await getPool().execute<ResultSetHeader>(
+    `UPDATE display_state
+        SET started_at = NOW(3) + INTERVAL ? MICROSECOND
+      WHERE id = 1 AND phase = 'live' AND skills_attempt_id = ?`,
+    [COUNTDOWN_MS * 1000, attemptId]);
   return res.affectedRows > 0;
 }

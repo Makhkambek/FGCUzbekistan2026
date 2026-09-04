@@ -1,0 +1,193 @@
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { DEFAULT_ATTEMPTS } from '@/lib/skills/scoring';
+
+interface Team { id: number; name: string }
+interface Attempt {
+  id: number; round: number; teamId: number; teamName: string;
+  alliance: 'red' | 'blue'; played: boolean; score: number | null;
+}
+interface TableRow { teamId: number; teamName: string; total: number; best: number; attemptsPlayed: number }
+
+export default function SkillsPanel({ teams, attempts, table }: {
+  teams: Team[]; attempts: Attempt[]; table: TableRow[];
+}) {
+  const router = useRouter();
+  const hasOrder = attempts.length > 0;
+  const anyPlayed = attempts.some((a) => a.played);
+
+  const [selected, setSelected] = useState<number[]>(teams.map((t) => t.id));
+  const [attemptsPerTeam, setAttemptsPerTeam] = useState(DEFAULT_ATTEMPTS);
+  const [alliance, setAlliance] = useState<'red' | 'blue'>('red');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [rowBusy, setRowBusy] = useState<number | null>(null);
+
+  const toggle = (id: number) =>
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+
+  async function generate() {
+    if (busy) return;
+    if (hasOrder && !window.confirm(
+      'A skills order already exists. Building a new one replaces it. Continue?')) return;
+    setMessage('');
+    setBusy(true);
+    try {
+      const res = await fetch('/api/admin/skills', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamIds: selected, attemptsPerTeam, alliance }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setMessage(res.ok ? `Skills order created: ${data.attempts} attempts` : (data.error ?? 'Could not create the order'));
+      if (res.ok) router.refresh();
+    } catch {
+      setMessage('Could not create the order — check the connection');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setSide(id: number, side: 'red' | 'blue') {
+    if (rowBusy !== null) return;
+    setRowBusy(id);
+    try {
+      const res = await fetch(`/api/admin/skills/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alliance: side }),
+      });
+      if (res.ok) router.refresh();
+      else setMessage('Could not change the side');
+    } catch {
+      setMessage('Could not change the side — check the connection');
+    } finally {
+      setRowBusy(null);
+    }
+  }
+
+  const rounds = [...new Set(attempts.map((a) => a.round))].sort((a, b) => a - b);
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900">Who takes part</h2>
+        <div className="flex flex-wrap gap-2">
+          {teams.map((t) => (
+            <button key={t.id} onClick={() => toggle(t.id)} disabled={anyPlayed}
+              className={`px-3 py-1.5 rounded-md text-sm border transition-colors disabled:opacity-50 ${
+                selected.includes(t.id)
+                  ? 'bg-amber-50 border-amber-400 text-amber-900 font-semibold'
+                  : 'bg-white border-gray-300 text-gray-500'
+              }`}>
+              {t.name}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm text-gray-500">Attempts per team</label>
+          <input type="number" min={1} max={10} value={attemptsPerTeam} disabled={anyPlayed}
+            onChange={(e) => {
+              const n = Math.trunc(Number(e.target.value));
+              setAttemptsPerTeam(Number.isFinite(n) && n > 0 ? Math.min(10, n) : 1);
+            }}
+            onWheel={(e) => e.currentTarget.blur()}
+            className="w-20 px-3 py-2 rounded-md bg-white text-gray-900 border border-gray-300 disabled:opacity-50" />
+          <label className="text-sm text-gray-500">Starting side</label>
+          <select value={alliance} disabled={anyPlayed}
+            onChange={(e) => setAlliance(e.target.value as 'red' | 'blue')}
+            className="px-3 py-2 rounded-md bg-white text-gray-900 border border-gray-300 disabled:opacity-50">
+            <option value="red">Red</option>
+            <option value="blue">Blue</option>
+          </select>
+          <button onClick={generate} disabled={busy || anyPlayed || selected.length === 0}
+            className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
+            {busy ? 'Building…' : hasOrder ? 'Rebuild the order' : 'Build the order'}
+          </button>
+        </div>
+        <p className="text-sm text-gray-600">
+          {selected.length} team{selected.length === 1 ? '' : 's'} × {attemptsPerTeam} ={' '}
+          {selected.length * attemptsPerTeam} attempts. The side can be changed per attempt below.
+        </p>
+        {anyPlayed && (
+          <p className="text-xs text-gray-500">
+            Attempts have been scored, so the order is locked — clear those results first to rebuild it.
+          </p>
+        )}
+        {message && <p className="text-sm text-gray-700">{message}</p>}
+      </div>
+
+      {rounds.map((round) => (
+        <div key={round} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-2 text-xs font-black uppercase tracking-widest text-gray-500 bg-gray-50 border-b border-gray-200">
+            Attempt {round}
+          </div>
+          <table className="w-full text-sm">
+            <tbody className="divide-y divide-gray-100">
+              {attempts.filter((a) => a.round === round).map((a) => (
+                <tr key={a.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2.5 font-semibold text-gray-900">{a.teamName}</td>
+                  <td className="px-4 py-2.5 w-40">
+                    <select value={a.alliance} disabled={rowBusy === a.id}
+                      onChange={(e) => setSide(a.id, e.target.value as 'red' | 'blue')}
+                      className={`px-2 py-1 rounded-md border text-sm font-semibold ${
+                        a.alliance === 'red'
+                          ? 'text-red-700 border-red-300 bg-red-50'
+                          : 'text-blue-700 border-blue-300 bg-blue-50'
+                      }`}>
+                      <option value="red">Red side</option>
+                      <option value="blue">Blue side</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-2.5 w-28 text-center font-mono">
+                    {a.played ? a.score : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="px-4 py-2.5 w-28 text-center">
+                    {a.played
+                      ? <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">Scored</span>
+                      : <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">Not scored</span>}
+                  </td>
+                  <td className="px-4 py-2.5 w-24 text-right">
+                    <button onClick={() => router.push(`/admin/skills/${a.id}`)}
+                      className="px-3 py-1 rounded-md border border-gray-300 text-xs font-semibold hover:bg-gray-50">
+                      {a.played ? 'Edit' : 'Open'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+
+      {table.some((t) => t.attemptsPlayed > 0) && (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-2 text-xs font-black uppercase tracking-widest text-amber-700 bg-amber-50 border-b border-amber-200">
+            Skills standings
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs text-gray-400 uppercase tracking-wide">
+                <th className="text-left px-4 py-2 w-10">#</th>
+                <th className="text-left px-4 py-2">Team</th>
+                <th className="text-right px-4 py-2 w-28">Total</th>
+                <th className="text-right px-4 py-2 w-28">Best</th>
+                <th className="text-right px-4 py-2 w-28">Attempts</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {table.map((t, i) => (
+                <tr key={t.teamId}>
+                  <td className="px-4 py-2 text-gray-400">{i + 1}</td>
+                  <td className="px-4 py-2 font-medium text-gray-900">{t.teamName}</td>
+                  <td className="px-4 py-2 text-right font-mono font-bold">{t.total}</td>
+                  <td className="px-4 py-2 text-right font-mono text-gray-500">{t.best}</td>
+                  <td className="px-4 py-2 text-right font-mono text-gray-500">{t.attemptsPlayed}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

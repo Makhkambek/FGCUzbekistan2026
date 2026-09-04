@@ -23,7 +23,7 @@ const teamNames = { 1: 'Alpha', 2: 'Bravo', 3: 'Charlie', 4: 'Delta', 5: 'Echo',
 // these cases are about the payload's content, so they use a fixed clock.
 const state = (phase: 'standings' | 'live' | 'result', matchId: number | null,
                startedAt: number | null = null) =>
-  ({ phase, matchId, startedAt, serverNow: 1_700_000_000_000 });
+  ({ phase, matchId, skillsAttemptId: null, startedAt, serverNow: 1_700_000_000_000 });
 
 describe('buildDisplayPayload — standings', () => {
   it('фаза standings отдаётся как есть, независимо от матча', () => {

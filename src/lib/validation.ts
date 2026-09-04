@@ -29,8 +29,29 @@ export const scheduleParamsSchema = z.object({
   seed: z.number().int().min(0),
 });
 
+export const skillsScheduleSchema = z.object({
+  teamIds: z.array(z.number().int().positive()).min(1).max(64),
+  attemptsPerTeam: z.number().int().min(1).max(10),
+  alliance: z.enum(['red', 'blue']),
+});
+
+export const skillsResultSchema = z.object({
+  suppression: wildfire,
+  humanBalls: z.number().int().min(0).max(500),
+  climb,
+  extinguisher: wildfire,
+  minorFouls: fouls,
+  majorFouls: fouls,
+  card,
+});
+
+export const skillsAllianceSchema = z.object({
+  alliance: z.enum(['red', 'blue']),
+});
+
 export const displayStartSchema = z.object({
   matchId: z.number().int().positive(),
 });
 
 export type MatchResultInput = z.infer<typeof matchResultSchema>;
+export type SkillsResultBody = z.infer<typeof skillsResultSchema>;

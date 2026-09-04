@@ -6,6 +6,8 @@ export type DisplayPhase = 'standings' | 'live' | 'result';
 export interface DisplayState {
   phase: DisplayPhase;
   matchId: number | null;
+  /** The projector points at a match or a skills attempt, never both. */
+  skillsAttemptId: number | null;
   /** Server time the referee started the match, or null when nothing is live. */
   startedAt: number | null;
   /** Server time this state was read, so a client can correct its own clock. */
@@ -65,7 +67,8 @@ export type RankKind = 'team' | 'alliance';
 /** teamId -> qualification ranking, or -> alliance seed during the playoff. */
 export type RankMap = Record<number, number | undefined>;
 
-export type DisplayPayload = DisplayStandings | DisplayLive | DisplayResult;
+export type DisplayPayload =
+  | DisplayStandings | DisplayLive | DisplayResult | DisplaySkills;
 
 const STANDINGS: DisplayStandings = { phase: 'standings' };
 
@@ -129,4 +132,21 @@ export function buildDisplayPayload(
     coopertition: scores.coopertition,
     winner,
   };
+}
+
+/** One team on the field, in the skills phase. */
+export interface DisplaySkills {
+  phase: 'skills-live' | 'skills-result';
+  round: number;
+  teamName: string;
+  alliance: 'red' | 'blue';
+  /** Present on the result screen only. */
+  score: number | null;
+  suppression: number;
+  humanBalls: number;
+  humanPoints: number;
+  climbMultiplier: number;
+  extinguisher: number;
+  startedAt: number | null;
+  serverNow: number;
 }

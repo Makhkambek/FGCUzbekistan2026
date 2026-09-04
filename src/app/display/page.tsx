@@ -11,6 +11,11 @@ interface AllianceLineup { teams: string[]; ranks: (number | null)[] }
 type RankKind = 'team' | 'alliance';
 interface AllianceBreakdown { suppression: number; multiplier: number; partnerClimbPoints: number; penalty: number }
 interface AllianceResult extends AllianceLineup, AllianceBreakdown { score: number }
+/** The one team taking a skills attempt, in the shape an alliance panel reads. */
+interface SkillsPanelData extends AllianceLineup {
+  score: number | null; suppression: number; humanPoints: number;
+  multiplier: number; penalty: number;
+}
 
 type DisplayPayload =
   | { phase: 'standings' }
@@ -27,8 +32,9 @@ type DisplayPayload =
   | {
       phase: 'skills-live' | 'skills-result';
       round: number; teamName: string; alliance: 'red' | 'blue';
+      red: AllianceLineup; blue: AllianceLineup;
       score: number | null; suppression: number; humanBalls: number; humanPoints: number;
-      climbMultiplier: number; extinguisher: number;
+      climbMultiplier: number; extinguisher: number; penalty: number; redCard: boolean;
       startedAt: number | null; serverNow: number;
     };
 
@@ -409,7 +415,8 @@ export default function DisplayPage() {
           <PlayoffScreen standings={allianceStandings!} nextMatchLabel={nextMatchLabel} clock={clock} />
         )}
         {skillsScreenData && (
-          <SkillsScreen data={skillsScreenData} clock={clock} matchClock={matchClockState} />
+          <SkillsScreen data={skillsScreenData} nextMatchLabel={nextMatchLabel}
+            clock={clock} matchClock={matchClockState} />
         )}
         {matchScreenData && (
           <MatchScreen data={matchScreenData} nextMatchLabel={nextMatchLabel} clock={clock}
@@ -435,9 +442,10 @@ export default function DisplayPage() {
 }
 
 /**
- * `label === undefined` means this screen has no "next match" to announce —
- * the skills phase, where the qualification ticker would read "No matches
- * remaining" and confuse the hall about what it is watching.
+ * `label === undefined` means this screen has nothing to announce and the
+ * whole line is left out — during skills with the bracket finished, where
+ * "No matches remaining" would only make the hall wonder what it is watching.
+ * `null` still means "there are matches, none left to play".
  */
 function Ticker({ label, clock }: { label: string | null | undefined; clock: Date | null }) {
   return (
@@ -678,22 +686,60 @@ function CenterMatchCountdown({ clock }: { clock: ReturnType<typeof useMatchCloc
  * one ball is the whole point of the phase, and burying it inside a total
  * would leave the hall unable to follow the score.
  */
-function SkillsScreen({ data, clock, matchClock }: {
+/**
+ * The skills screen is the match screen.
+ *
+ * The hall has spent two days learning where the score, the team and the clock
+ * live; a bespoke one-team layout for the last hour would throw that away. So
+ * both alliance panels stay, the team stands in the first slot of the side it
+ * plays from, and every slot with nobody in it — including the whole opposing
+ * alliance — is a dash.
+ */
+function SkillsScreen({ data, nextMatchLabel, clock, matchClock }: {
   data: Extract<DisplayPayload, { phase: 'skills-live' | 'skills-result' }>;
+  nextMatchLabel: string | null;
   clock: Date | null;
   matchClock: ReturnType<typeof useMatchClock>;
 }) {
   const isResult = data.phase === 'skills-result';
-  const theme = data.alliance === 'red' ? ALLIANCE_THEME.red : ALLIANCE_THEME.blue;
+
+  // Only the side the team plays from carries numbers, and only once the
+  // attempt is over: while it is running nothing has been scored yet, and a
+  // wall of zeroes on the projector reads as "this team has failed" rather
+  // than "the referee has not filled the form in". A live match screen shows
+  // dashes for the same reason.
+  const scored: SkillsPanelData | null = !isResult ? null : {
+    ...(data.alliance === 'red' ? data.red : data.blue),
+    score: data.score,
+    suppression: data.suppression,
+    humanPoints: data.humanPoints,
+    multiplier: data.climbMultiplier,
+    penalty: data.penalty,
+  };
+  const red = data.alliance === 'red' && scored ? scored : data.red;
+  const blue = data.alliance === 'blue' && scored ? scored : data.blue;
+  // The extinguisher is shared between alliances in a match; in skills it
+  // belongs to the one team on the field, so the empty panel must not show it.
+  const sharedFor = (side: 'red' | 'blue') =>
+    scored && side === data.alliance ? { extinguisher: data.extinguisher, coopertition: 0 } : null;
 
   return (
     <>
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 40, marginBottom: 26 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 34 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 34, minWidth: 0 }}>
           <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 82, lineHeight: 0.9, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-            Skills
+            {isResult ? 'Results' : 'On field'}
           </div>
-          <Badge label="Attempt" value={data.round} />
+          <Badge label="Skills" value={`Attempt ${data.round}`} />
+          {isResult && data.redCard && (
+            <div style={{
+              padding: '8px 22px', borderRadius: 10, background: 'oklch(0.55 0.22 25)',
+              fontFamily: F_HEAD, fontWeight: 700, fontSize: 40, lineHeight: 1,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+            }}>
+              Red card
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 30 }}>
           <div style={{ ...OVER_GRADIENT, textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -710,59 +756,22 @@ function SkillsScreen({ data, clock, matchClock }: {
 
       <style>{'@keyframes fgcPulse { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }'}</style>
 
-      <div style={{ position: 'relative', flex: '1 1 0%', minHeight: 0, display: 'grid', gridTemplateColumns: '1fr', gap: 40 }}>
-        <div style={{
-          borderRadius: 24, background: theme.gradient, boxShadow: theme.shadow,
-          display: 'flex', flexDirection: 'column', overflow: 'hidden', color: 'oklch(1 0 0)',
-        }}>
-          <div style={{
-            padding: '16px 30px', fontFamily: F_MONO, fontSize: 21, fontWeight: 600,
-            letterSpacing: '0.28em', textTransform: 'uppercase', background: 'oklch(0 0 0 / 0.16)',
-          }}>
-            {theme.label}
-          </div>
-          <div style={{ padding: '28px 30px 0' }}>
-            <div style={{ fontFamily: F_SANS, fontWeight: 700, fontSize: 74, lineHeight: 1.05 }}>
-              {data.teamName}
-            </div>
-          </div>
-          <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18, padding: '20px 30px' }}>
-            <SkillsRow label="Robot balls" value={data.suppression} />
-            <SkillsRow label={`Human player · ${data.humanBalls} × 5`} value={data.humanPoints} accent />
-            <SkillsRow label="Climb multiplier" value={`×${data.climbMultiplier.toFixed(2)}`} />
-            <SkillsRow label="Extinguisher" value={data.extinguisher} />
-          </div>
-          <div style={{
-            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-            padding: '20px 30px', background: 'oklch(0 0 0 / 0.16)',
-          }}>
-            <span style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 46, textTransform: 'uppercase' }}>Total</span>
-            <span style={{ fontFamily: F_MONO, fontWeight: 700, fontSize: 76 }}>
-              {data.score === null ? '—' : data.score}
-            </span>
-          </div>
-        </div>
+      <div style={{
+        position: 'relative', flex: '1 1 0%', minHeight: 0, display: 'grid',
+        gridTemplateColumns: '1fr 1fr', gap: 40,
+      }}>
+        <AlliancePanel color="red" data={red} isWinner={false} rankKind="team"
+          rows={SKILLS_ROWS} shared={sharedFor('red')} />
+        <AlliancePanel color="blue" data={blue} isWinner={false} rankKind="team"
+          rows={SKILLS_ROWS} shared={sharedFor('blue')} />
       </div>
 
-      <Ticker label={undefined} clock={clock} />
+      {/* Skills may be run with matches still to come, and the ticker saying
+          "no matches remaining" under a skills attempt would be a lie the
+          announcer reads out. When there is genuinely nothing next, the line
+          goes away rather than announcing its own emptiness. */}
+      <Ticker label={nextMatchLabel ?? undefined} clock={clock} />
     </>
-  );
-}
-
-function SkillsRow({ label, value, accent = false }: {
-  label: string; value: number | string; accent?: boolean;
-}) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-      padding: '10px 16px', borderRadius: 12,
-      background: accent ? 'oklch(1 0 0 / 0.22)' : 'oklch(1 0 0 / 0.1)',
-    }}>
-      <span style={{ fontFamily: F_MONO, fontSize: 26, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-        {label}
-      </span>
-      <span style={{ fontFamily: F_MONO, fontWeight: 700, fontSize: 38 }}>{value}</span>
-    </div>
   );
 }
 
@@ -781,7 +790,9 @@ const ALLIANCE_THEME = {
   },
 } as const;
 
-const BREAKDOWN_ROWS: { key: keyof AllianceBreakdown | 'extinguisher' | 'coopertition'; label: string; swatch: string; shared?: boolean }[] = [
+interface BreakdownRow { key: string; label: string; swatch: string; shared?: boolean }
+
+const BREAKDOWN_ROWS: BreakdownRow[] = [
   { key: 'suppression', label: 'Suppression', swatch: 'oklch(0.72 0.15 70)' },
   { key: 'multiplier', label: 'Climb multiplier', swatch: 'oklch(0.6 0.18 300)' },
   { key: 'partnerClimbPoints', label: 'Partner climbs', swatch: 'oklch(0.65 0.15 230)' },
@@ -792,14 +803,33 @@ const BREAKDOWN_ROWS: { key: keyof AllianceBreakdown | 'extinguisher' | 'coopert
   { key: 'penalty', label: 'Opponent fouls', swatch: 'oklch(0.6 0.2 25)' },
 ];
 
-function AlliancePanel({ color, data, isWinner, shared, rankKind }: {
+/**
+ * The same rows, read the same way, for a skills attempt.
+ *
+ * The human player earns a line of their own: five points for one ball is the
+ * thing the hall is there to watch, and it would otherwise vanish inside a
+ * suppression number. "Own fouls" rather than "Opponent fouls" — with no
+ * opposing alliance the deduction lands on the team taking the attempt.
+ */
+const SKILLS_ROWS: BreakdownRow[] = [
+  { key: 'suppression', label: 'Robot balls', swatch: 'oklch(0.72 0.15 70)' },
+  { key: 'humanPoints', label: 'Human player', swatch: 'oklch(0.78 0.16 45)' },
+  { key: 'multiplier', label: 'Climb multiplier', swatch: 'oklch(0.6 0.18 300)' },
+  { key: 'extinguisher', label: 'Extinguisher', swatch: 'oklch(0.62 0.13 160)', shared: true },
+  { key: 'penalty', label: 'Own fouls', swatch: 'oklch(0.6 0.2 25)' },
+];
+
+function AlliancePanel({ color, data, isWinner, shared, rankKind, rows = BREAKDOWN_ROWS }: {
   color: 'red' | 'blue';
-  data: AllianceLineup | AllianceResult;
+  data: AllianceLineup | AllianceResult | SkillsPanelData;
   isWinner: boolean;
   shared: { extinguisher: number; coopertition: number } | null;
   rankKind: RankKind;
+  /** Which lines the panel breaks the score into — skills reads differently. */
+  rows?: BreakdownRow[];
 }) {
-  const breakdown = 'score' in data ? data : null;
+  const breakdown: Record<string, number> | null =
+    'score' in data ? (data as unknown as Record<string, number>) : null;
   const theme = ALLIANCE_THEME[color];
   // A 3px outline was invisible from the back of the hall, and on the event
   // gradient it had even less to contrast against — the winner is now marked
@@ -863,10 +893,10 @@ function AlliancePanel({ color, data, isWinner, shared, rankKind }: {
       </div>
 
       <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '14px 30px 0' }}>
-        {BREAKDOWN_ROWS.map((row) => {
+        {rows.map((row) => {
           const value = row.shared
-            ? (shared ? shared[row.key as 'extinguisher' | 'coopertition'] : null)
-            : (breakdown ? breakdown[row.key as keyof AllianceBreakdown] : null);
+            ? (shared ? shared[row.key as 'extinguisher' | 'coopertition'] ?? null : null)
+            : (breakdown ? breakdown[row.key] ?? null : null);
           const display = value === null
             ? '—'
             : row.key === 'multiplier' ? `×${(value as number).toFixed(2)}`
@@ -900,7 +930,7 @@ function AlliancePanel({ color, data, isWinner, shared, rankKind }: {
           Total
         </div>
         <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 96, lineHeight: 0.8 }}>
-          {breakdown ? breakdown.score : '—'}
+          {breakdown && breakdown.score !== null ? breakdown.score : '—'}
         </div>
       </div>
     </section>

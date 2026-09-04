@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   HUMAN_BALL_POINTS, skillsAttemptScore, skillsStandings, skillsAttemptOrder,
+  skillsAttemptsByTeam, skillsTeamIds,
 } from '@/lib/skills/scoring';
 import type { SkillsAttemptInput } from '@/lib/skills/scoring';
 
@@ -109,5 +110,71 @@ describe('skillsStandings', () => {
   it('при полном равенстве порядок устойчив — по номеру команды', () => {
     const s = skillsStandings([5, 3], [a(5, 1, 40), a(3, 1, 40)]);
     expect(s.map((x) => x.teamId)).toEqual([3, 5]);
+  });
+});
+
+describe('a team\'s attempts, listed for the board', () => {
+  it('lists every round in order, whether or not it has been taken', () => {
+    const rows = skillsAttemptsByTeam(
+      [1],
+      [
+        { teamId: 1, round: 2, score: 30, played: true },
+        { teamId: 1, round: 1, score: 40, played: true },
+        { teamId: 1, round: 3, score: 0, played: false },
+      ],
+    );
+    expect(rows[1]).toEqual([
+      { round: 1, score: 40, played: true },
+      { round: 2, score: 30, played: true },
+      { round: 3, score: null, played: false },
+    ]);
+  });
+
+  it('holds no score for an attempt that has not been taken yet', () => {
+    const rows = skillsAttemptsByTeam([1], [{ teamId: 1, round: 1, score: 12, played: false }]);
+    expect(rows[1][0].score).toBeNull();
+  });
+
+  it('keeps one team out of another team\'s list', () => {
+    const rows = skillsAttemptsByTeam([1, 2], [
+      { teamId: 1, round: 1, score: 40, played: true },
+      { teamId: 2, round: 1, score: 10, played: true },
+    ]);
+    expect(rows[1]).toHaveLength(1);
+    expect(rows[2][0].score).toBe(10);
+  });
+
+  it('gives a team with nothing in the order an empty list rather than nothing at all', () => {
+    expect(skillsAttemptsByTeam([5], [])[5]).toEqual([]);
+  });
+});
+
+describe('who belongs on the skills board', () => {
+  const attempts = [
+    { teamId: 1, round: 1, score: 40, played: true },
+    { teamId: 2, round: 1, score: 0, played: false },
+  ];
+
+  it('lists a team that is in the order but has not played yet', () => {
+    const rows = skillsStandings(skillsTeamIds(attempts), attempts);
+    expect(rows.map((r) => r.teamId).sort()).toEqual([1, 2]);
+  });
+
+  it('leaves out a team that is not in the order at all', () => {
+    expect(skillsTeamIds(attempts)).not.toContain(3);
+  });
+
+  it('names each team once, however many attempts it has', () => {
+    expect(skillsTeamIds([
+      { teamId: 1, round: 1, score: 1, played: true },
+      { teamId: 1, round: 2, score: 2, played: true },
+    ])).toEqual([1]);
+  });
+
+  it('keeps the order the operator built', () => {
+    expect(skillsTeamIds([
+      { teamId: 7, round: 1, score: 0, played: false },
+      { teamId: 3, round: 1, score: 0, played: false },
+    ])).toEqual([7, 3]);
   });
 });

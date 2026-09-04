@@ -134,12 +134,23 @@ export function buildDisplayPayload(
   };
 }
 
-/** One team on the field, in the skills phase. */
+/**
+ * One team on the field, in the skills phase.
+ *
+ * The hall reads the same screen it has read all day: two alliances, three
+ * slots each. The team stands in the first slot of the side it plays from and
+ * every other slot is a dash — an empty field is the truth here, and inventing
+ * a different layout for the last hour of the event would make the audience
+ * relearn where to look.
+ */
 export interface DisplaySkills {
   phase: 'skills-live' | 'skills-result';
   round: number;
   teamName: string;
+  /** The side the team plays from; the other alliance is all dashes. */
   alliance: 'red' | 'blue';
+  red: AllianceLineup;
+  blue: AllianceLineup;
   /** Present on the result screen only. */
   score: number | null;
   suppression: number;
@@ -147,6 +158,10 @@ export interface DisplaySkills {
   humanPoints: number;
   climbMultiplier: number;
   extinguisher: number;
+  /** What the fouls took off, as a negative — 0 when there were none. */
+  penalty: number;
+  /** A red card zeroes the attempt; the screen says so rather than implying fouls. */
+  redCard: boolean;
   startedAt: number | null;
   serverNow: number;
 }

@@ -8,16 +8,21 @@ interface Attempt {
   id: number; round: number; teamId: number; teamName: string;
   alliance: 'red' | 'blue'; played: boolean; score: number | null;
 }
-interface TableRow { teamId: number; teamName: string; total: number; best: number; attemptsPlayed: number }
-
-export default function SkillsPanel({ teams, attempts, table }: {
-  teams: Team[]; attempts: Attempt[]; table: TableRow[];
+export default function SkillsPanel({ teams, attempts }: {
+  teams: Team[]; attempts: Attempt[];
 }) {
   const router = useRouter();
   const hasOrder = attempts.length > 0;
   const anyPlayed = attempts.some((a) => a.played);
 
-  const [selected, setSelected] = useState<number[]>(teams.map((t) => t.id));
+  // Nobody is picked to start with. Skills is opt-in — a team that has gone
+  // home, or whose robot is dead by then, should never end up in the order
+  // because someone forgot to untick them.
+  //
+  // Once an order exists the boxes show who is actually in it, so the panel
+  // reads as the truth on the field rather than as an empty form.
+  const teamsInOrder = [...new Set(attempts.map((a) => a.teamId))];
+  const [selected, setSelected] = useState<number[]>(teamsInOrder);
   const [attemptsPerTeam, setAttemptsPerTeam] = useState(DEFAULT_ATTEMPTS);
   const [alliance, setAlliance] = useState<'red' | 'blue'>('red');
   const [busy, setBusy] = useState(false);
@@ -26,6 +31,7 @@ export default function SkillsPanel({ teams, attempts, table }: {
 
   const toggle = (id: number) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const allPicked = selected.length === teams.length;
 
   async function generate() {
     if (busy) return;
@@ -70,19 +76,51 @@ export default function SkillsPanel({ teams, attempts, table }: {
   return (
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Who takes part</h2>
-        <div className="flex flex-wrap gap-2">
-          {teams.map((t) => (
-            <button key={t.id} onClick={() => toggle(t.id)} disabled={anyPlayed}
-              className={`px-3 py-1.5 rounded-md text-sm border transition-colors disabled:opacity-50 ${
-                selected.includes(t.id)
-                  ? 'bg-amber-50 border-amber-400 text-amber-900 font-semibold'
-                  : 'bg-white border-gray-300 text-gray-500'
-              }`}>
-              {t.name}
-            </button>
-          ))}
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Who takes part{' '}
+            <span className="text-sm font-normal text-gray-500">
+              — {selected.length} of {teams.length} picked
+            </span>
+          </h2>
+          <button
+            onClick={() => setSelected(allPicked ? [] : teams.map((t) => t.id))}
+            disabled={anyPlayed}
+            className="px-3 py-1.5 rounded-md border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+            {allPicked ? 'Clear all' : 'Pick all'}
+          </button>
         </div>
+        {/* A tick box per team, in a list rather than a row of chips: the
+            operator is reading down a list of who is in the hall and ticking
+            names off it, and a tick is unambiguous where a shaded chip is
+            not. */}
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {teams.map((t) => {
+            const on = selected.includes(t.id);
+            return (
+              <button key={t.id} onClick={() => toggle(t.id)} disabled={anyPlayed}
+                aria-pressed={on}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  on ? 'bg-amber-50 border-amber-300 text-amber-900 font-semibold' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}>
+                <span className={`w-4 h-4 shrink-0 rounded border flex items-center justify-center ${
+                  on ? 'bg-amber-600 border-amber-600 text-white' : 'bg-white border-gray-300'
+                }`}>
+                  {on && (
+                    <svg viewBox="0 0 12 10" className="w-2.5 h-2.5" fill="none"
+                      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 5.5L4.2 8.5L11 1.5" />
+                    </svg>
+                  )}
+                </span>
+                <span className="truncate">{t.name}</span>
+              </button>
+            );
+          })}
+        </div>
+        {selected.length === 0 && !anyPlayed && (
+          <p className="text-sm text-gray-500">Tick the teams that are taking part to build the order.</p>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm text-gray-500">Attempts per team</label>
           <input type="number" min={1} max={10} value={attemptsPerTeam} disabled={anyPlayed}
@@ -141,10 +179,10 @@ export default function SkillsPanel({ teams, attempts, table }: {
                   <td className="px-4 py-2.5 w-28 text-center font-mono">
                     {a.played ? a.score : <span className="text-gray-300">—</span>}
                   </td>
-                  <td className="px-4 py-2.5 w-28 text-center">
+                  <td className="px-4 py-2.5 w-32 text-center">
                     {a.played
-                      ? <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">Scored</span>
-                      : <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">Not scored</span>}
+                      ? <span className="text-xs whitespace-nowrap px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">Scored</span>
+                      : <span className="text-xs whitespace-nowrap px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">Not scored</span>}
                   </td>
                   <td className="px-4 py-2.5 w-24 text-right">
                     <button onClick={() => router.push(`/admin/skills/${a.id}`)}
@@ -159,35 +197,6 @@ export default function SkillsPanel({ teams, attempts, table }: {
         </div>
       ))}
 
-      {table.some((t) => t.attemptsPlayed > 0) && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-2 text-xs font-black uppercase tracking-widest text-amber-700 bg-amber-50 border-b border-amber-200">
-            Skills standings
-          </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs text-gray-400 uppercase tracking-wide">
-                <th className="text-left px-4 py-2 w-10">#</th>
-                <th className="text-left px-4 py-2">Team</th>
-                <th className="text-right px-4 py-2 w-28">Total</th>
-                <th className="text-right px-4 py-2 w-28">Best</th>
-                <th className="text-right px-4 py-2 w-28">Attempts</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {table.map((t, i) => (
-                <tr key={t.teamId}>
-                  <td className="px-4 py-2 text-gray-400">{i + 1}</td>
-                  <td className="px-4 py-2 font-medium text-gray-900">{t.teamName}</td>
-                  <td className="px-4 py-2 text-right font-mono font-bold">{t.total}</td>
-                  <td className="px-4 py-2 text-right font-mono text-gray-500">{t.best}</td>
-                  <td className="px-4 py-2 text-right font-mono text-gray-500">{t.attemptsPlayed}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }

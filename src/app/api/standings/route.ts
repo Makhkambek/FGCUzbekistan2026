@@ -5,8 +5,8 @@ import type { MatchRow } from '@/lib/db/matches';
 import { getAlliances } from '@/lib/db/alliances';
 import { standingsFromRows, matchScoresForDisplay } from '@/lib/standings';
 import type { MatchScores } from '@/lib/scoring/types';
-import { allianceMatchScore, computeAllianceStandings } from '@/lib/alliances/playoff';
-import { skillsTable } from '@/lib/db/skills';
+import { allianceMatchScore, computeAllianceStandings, finalsAreOver } from '@/lib/alliances/playoff';
+import { skillsBoard } from '@/lib/db/skills';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,9 +101,25 @@ export async function GET() {
 
   // The skills table is its own award and never touches the ranking above —
   // it rides along on this response so the public board polls once, not twice.
-  const skills = (await skillsTable(teams.map((t) => t.id)))
-    .filter((row) => row.attemptsPlayed > 0)
-    .map((row) => ({ ...row, name: names[row.teamId] ?? String(row.teamId) }));
+  // Each team carries its own attempts: the board shows one team at a time.
+  // Everyone in the running order is listed from the moment the order is
+  // built, on nil points until they run — the hall reads this table to find
+  // out who is up, not only who is done.
+  //
+  // None of it leaves the server until the finals are decided: skills is the
+  // last award of the event, and a second table of numbers beside the bracket
+  // splits the hall's attention at the one moment the tournament has been
+  // building towards. Withheld here rather than hidden in the page, so there
+  // is nothing on the board to find early.
+  const board = finalsAreOver(rows.map((r) => ({ phase: r.phase, played: !!r.played })))
+    ? await skillsBoard()
+    : { standings: [], attempts: {} };
+  const skills = board.standings
+    .map((row) => ({
+      ...row,
+      name: names[row.teamId] ?? String(row.teamId),
+      attempts: board.attempts[row.teamId] ?? [],
+    }));
 
   return NextResponse.json({ standings, matches, allianceStandings, skills });
 }

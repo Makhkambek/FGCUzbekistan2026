@@ -2,8 +2,10 @@
 export const MATCH_DURATION_MS = 150_000;
 /** The last 30 seconds are the endgame — announced to the hall. */
 export const ENDGAME_MS = 30_000;
+/** 3-2-1 between the referee pressing Start and the match actually running. */
+export const COUNTDOWN_MS = 3_000;
 
-export type ClockPeriod = 'pre' | 'running' | 'endgame' | 'over';
+export type ClockPeriod = 'pre' | 'countdown' | 'running' | 'endgame' | 'over';
 
 export interface MatchClock {
   remainingMs: number;
@@ -20,21 +22,34 @@ function label(remainingMs: number): string {
 }
 
 /**
- * Where the match on screen is in its 2:30, from the moment the referee
- * started it.
+ * Where the match on screen is, from the moment the referee started it.
  *
- * `startedAt` and `now` are both server-side milliseconds — the display page
- * corrects the projector laptop's clock against the server's before calling
- * this. A clock still running ahead would otherwise produce a negative
- * elapsed time and a countdown starting above 2:30, so elapsed is clamped
- * into the match at both ends.
+ * `startedAt` is when the match itself begins, and Start sets it a few seconds
+ * ahead so the hall gets 3-2-1 first: until then this is 'countdown' and the
+ * label is the bare number. A match only previewed on screen has no start at
+ * all and sits at 2:30 — nothing here ever pretends a match is running.
+ *
+ * Both times are server-side milliseconds; the display page corrects the
+ * projector laptop's clock against the server's before calling this. The
+ * countdown is capped at COUNTDOWN_MS regardless, so a clock that is still
+ * wildly ahead shows "3" and then runs, instead of freezing on a number that
+ * counts down from minutes.
  */
 export function matchClock(startedAt: number | null, now: number): MatchClock {
   if (startedAt === null) {
     return { remainingMs: MATCH_DURATION_MS, period: 'pre', label: label(MATCH_DURATION_MS) };
   }
 
-  const elapsed = Math.min(Math.max(now - startedAt, 0), MATCH_DURATION_MS);
+  if (now < startedAt) {
+    const untilStart = Math.min(startedAt - now, COUNTDOWN_MS);
+    return {
+      remainingMs: MATCH_DURATION_MS,
+      period: 'countdown',
+      label: String(Math.ceil(untilStart / 1000)),
+    };
+  }
+
+  const elapsed = Math.min(now - startedAt, MATCH_DURATION_MS);
   const remainingMs = MATCH_DURATION_MS - elapsed;
 
   const period: ClockPeriod =

@@ -57,6 +57,9 @@ export default function MatchForm({ match, teamNames }: {
   const [starting, setStarting] = useState(false);
   const [startStatus, setStartStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [startError, setStartError] = useState('');
+  const [going, setGoing] = useState(false);
+  const [goStatus, setGoStatus] = useState<'idle' | 'ok' | 'error'>('idle');
+  const [goError, setGoError] = useState('');
   const [clampNote, setClampNote] = useState('');
 
   // Any edit after a save invalidates that save's confirmation — a stale
@@ -157,7 +160,11 @@ export default function MatchForm({ match, teamNames }: {
     }
   }
 
-  async function startMatch() {
+  // Two steps on purpose. Preview puts the teams on the projector so the hall
+  // can read the alliances while robots are placed; the clock only starts when
+  // the referee presses the second button.
+  async function previewMatch() {
+    if (starting) return;
     setStarting(true);
     setStartStatus('idle');
     setStartError('');
@@ -179,9 +186,35 @@ export default function MatchForm({ match, teamNames }: {
       }
     } catch {
       setStartStatus('error');
-      setStartError('Could not start — check the connection and try again');
+      setStartError('Could not show it — check the connection and try again');
     } finally {
       setStarting(false);
+    }
+  }
+
+  async function startClock() {
+    if (going) return;
+    setGoing(true);
+    setGoStatus('idle');
+    setGoError('');
+    try {
+      const res = await fetch('/api/admin/display/go', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId: match.id }),
+      });
+      if (res.ok) {
+        setGoStatus('ok');
+        setTimeout(() => setGoStatus('idle'), 4000);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setGoStatus('error');
+        setGoError(data.error ?? `Could not start (status ${res.status})`);
+      }
+    } catch {
+      setGoStatus('error');
+      setGoError('Could not start — check the connection and try again');
+    } finally {
+      setGoing(false);
     }
   }
 
@@ -260,17 +293,33 @@ export default function MatchForm({ match, teamNames }: {
             ✓ Shown on display
           </span>
         )}
-        <button onClick={startMatch} disabled={starting}
+        {goStatus === 'ok' && (
+          <span className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-2 py-1">
+            ✓ Counting down
+          </span>
+        )}
+        <button onClick={previewMatch} disabled={starting}
           className={`px-3 py-1 rounded-md text-white text-sm font-semibold disabled:opacity-50 transition-colors ${
             startStatus === 'ok'
               ? 'ml-auto bg-green-600 hover:bg-green-700'
               : 'ml-auto bg-blue-600 hover:bg-blue-700'
           }`}>
-          {starting ? 'Starting…' : 'Start match'}
+          {starting ? 'Showing…' : 'Preview on display'}
+        </button>
+        {/* Deliberately the loudest control on the page: this is the one that
+            starts 3-2-1 and the 2:30 in front of the whole hall. */}
+        <button onClick={startClock} disabled={going}
+          className="px-4 py-1 rounded-md bg-amber-600 text-white text-sm font-bold hover:bg-amber-700 disabled:opacity-50 transition-colors">
+          {going ? 'Starting…' : 'Start match ▶'}
         </button>
         {startStatus === 'error' && startError && (
           <span className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
             Error: {startError}
+          </span>
+        )}
+        {goStatus === 'error' && goError && (
+          <span className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+            Error: {goError}
           </span>
         )}
       </div>

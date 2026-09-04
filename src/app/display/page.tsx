@@ -5,6 +5,7 @@ import { pickNextMatch } from '@/lib/next-match';
 import FullscreenButton from './FullscreenButton';
 import { EVENT_BACKGROUND, gridTexture } from '@/lib/brand';
 import { matchClock, type ClockPeriod } from '@/lib/match-clock';
+import { matchLabel } from '@/lib/match-label';
 
 interface AllianceLineup { teams: string[] }
 interface AllianceBreakdown { suppression: number; multiplier: number; partnerClimbPoints: number; penalty: number }
@@ -29,7 +30,12 @@ interface MatchSummary {
 }
 interface AllianceStanding { seed: number; total: number; matchesPlayed: number; teams: string[] }
 
-const POLL_MS = 3000;
+// The state endpoint is one small row, and it now carries the moment a match
+// starts: at three seconds a screen could learn about the start only as the
+// 3-2-1 ended and show the hall nothing. The heavy standings poll keeps its
+// own slower interval below.
+const POLL_MS = 1000;
+const STANDINGS_POLL_MS = 3000;
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
 
@@ -63,10 +69,6 @@ const OVER_GRADIENT: React.CSSProperties = {
   borderRadius: 12,
   padding: '10px 18px',
 };
-
-function matchLabel(phase: 'qualification' | 'playoff', number: number) {
-  return `${phase === 'playoff' ? 'P' : 'Q'}${number}`;
-}
 
 function useClock() {
   // Starts null and is filled by the effect: rendering the clock on the server
@@ -162,7 +164,9 @@ function useMatchSounds(period: ClockPeriod | null, matchKey: string | null) {
     if (matchKey !== prev.key) return;
     if (prev.period === period) return;
 
-    if (prev.period === 'pre' && period === 'running') play('start');
+    // The start whistle belongs at the end of 3-2-1, not when the referee
+    // pressed the button — that is the moment the field actually goes live.
+    if ((prev.period === 'countdown' || prev.period === 'pre') && period === 'running') play('start');
     else if (prev.period === 'running' && period === 'endgame') play('endgame');
     else if ((prev.period === 'running' || prev.period === 'endgame') && period === 'over') play('end');
   }, [period, matchKey, unlocked]);
@@ -237,10 +241,10 @@ export default function DisplayPage() {
     };
     load();
     const timer = setInterval(load, POLL_MS);
-    // Three missed polls — the screen is refreshed every POLL_MS, so this
-    // stays quiet through a single slow response.
+    // Three missed polls of the slower of the two feeds, so a single slow
+    // response never puts NO CONNECTION in front of the hall.
     const staleTimer = setInterval(() => {
-      const cutoff = POLL_MS * 3 + 2_000;
+      const cutoff = STANDINGS_POLL_MS * 3 + 2_000;
       const oldest = Math.min(lastSuccessAt.current, lastStandingsAt.current);
       setStale(Date.now() - oldest > cutoff);
     }, 2_000);
@@ -271,7 +275,7 @@ export default function DisplayPage() {
         .catch(() => {});
     };
     load();
-    const timer = setInterval(load, POLL_MS);
+    const timer = setInterval(load, STANDINGS_POLL_MS);
     return () => { cancelled = true; clearInterval(timer); controller?.abort(); };
   }, []);
 
@@ -471,7 +475,11 @@ function MatchScreen({ data, nextMatchLabel, clock, matchClock, clockVariant }: 
                 {isResult ? 'Results' : 'On field'}
               </div>
             )}
-          <Badge label="Match" value={matchLabel(data.matchPhase, data.matchNumber)} />
+          {/* The playoff label already says "Match", so the caption would
+              read "MATCH Match 1" — there it carries the number alone. */}
+          {data.matchPhase === 'playoff'
+            ? <Badge label="Playoff" value={matchLabel(data.matchPhase, data.matchNumber)} />
+            : <Badge label="Match" value={matchLabel(data.matchPhase, data.matchNumber)} />}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 30 }}>
           <div style={{ ...OVER_GRADIENT, textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -518,7 +526,9 @@ function MatchCountdown({ clock }: { clock: ReturnType<typeof useMatchClock> }) 
   // Endgame and time-up are filled solid, not tinted: a translucent panel over
   // the event's pink gradient washes out at the back of a bright hall, and
   // those are the two moments the hall must not miss.
-  const theme = period === 'endgame'
+  const theme = period === 'countdown'
+    ? { bg: 'oklch(1 0 0 / 0.2)', border: 'oklch(1 0 0 / 0.7)', text: 'oklch(1 0 0)', caption: 'Get ready' }
+    : period === 'endgame'
     ? { bg: 'oklch(0.82 0.17 82)', border: 'oklch(0.88 0.15 85)', text: 'oklch(0.25 0.06 60)', caption: 'Endgame' }
     : period === 'over'
       ? { bg: 'oklch(0.55 0.22 25)', border: 'oklch(0.65 0.22 25)', text: 'oklch(1 0 0)', caption: 'Time' }
@@ -560,7 +570,9 @@ function MatchCountdown({ clock }: { clock: ReturnType<typeof useMatchClock> }) 
  */
 function BigMatchCountdown({ clock }: { clock: ReturnType<typeof useMatchClock> }) {
   const period = clock?.period ?? 'pre';
-  const theme = period === 'endgame'
+  const theme = period === 'countdown'
+    ? { digits: 'oklch(1 0 0)', caption: 'Get ready', captionColor: 'oklch(1 0 0 / 0.85)' }
+    : period === 'endgame'
     ? { digits: 'oklch(0.86 0.17 82)', caption: 'Endgame', captionColor: 'oklch(0.86 0.17 82)' }
     : period === 'over'
       ? { digits: 'oklch(0.72 0.2 25)', caption: 'Time', captionColor: 'oklch(0.72 0.2 25)' }
@@ -598,7 +610,9 @@ function BigMatchCountdown({ clock }: { clock: ReturnType<typeof useMatchClock> 
  */
 function CenterMatchCountdown({ clock }: { clock: ReturnType<typeof useMatchClock> }) {
   const period = clock?.period ?? 'pre';
-  const theme = period === 'endgame'
+  const theme = period === 'countdown'
+    ? { digits: 'oklch(1 0 0)', caption: 'Get ready' }
+    : period === 'endgame'
     ? { digits: 'oklch(0.88 0.17 84)', caption: 'Endgame' }
     : period === 'over'
       ? { digits: 'oklch(0.72 0.21 25)', caption: 'Time' }

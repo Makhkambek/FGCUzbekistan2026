@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { matchLabel } from '@/lib/match-label';
 
 interface MatchListRow {
   id: number; number: number; phase: string; played: boolean;
@@ -90,7 +91,7 @@ function MatchGroup({ title, rows, highlight = false, isHit, nextId, onOpen }: {
               <tr><td colSpan={6} className="text-center py-8 text-sm text-gray-300">No matches</td></tr>
             )}
             {rows.map((m) => {
-              const phaseLabel = `${m.phase === 'playoff' ? 'P' : 'Q'}${m.number}`;
+              const phaseLabel = matchLabel(m.phase === 'playoff' ? 'playoff' : 'qualification', m.number);
               const redWins = m.played && m.redScore !== null && m.blueScore !== null && m.redScore > m.blueScore;
               const blueWins = m.played && m.redScore !== null && m.blueScore !== null && m.blueScore > m.redScore;
               const isNext = m.id === nextId;

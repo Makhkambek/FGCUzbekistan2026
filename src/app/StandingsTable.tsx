@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { matchLabel } from '@/lib/match-label';
 
 interface Standing {
   teamId: number; name: string; rankingScore: number;
@@ -33,7 +34,7 @@ function MatchSection({ title, rows, highlight = false, isHit }: {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((m) => {
-              const phaseLabel = `${m.phase === 'playoff' ? 'P' : 'Q'}${m.number}`;
+              const phaseLabel = matchLabel(m.phase === 'playoff' ? 'playoff' : 'qualification', m.number);
               const redWins = m.played && m.redScore !== null && m.blueScore !== null && m.redScore > m.blueScore;
               const blueWins = m.played && m.redScore !== null && m.blueScore !== null && m.blueScore > m.redScore;
               const hit = isHit(m);

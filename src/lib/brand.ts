@@ -1,10 +1,14 @@
 /**
- * The event's background, shared by the public board and every projector
- * screen so they read as one event rather than three separate pages.
+ * The projector's ground: the deep navy the FGC display reference files use.
+ *
+ * A hall is a hard place to read a screen. Against navy the alliance reds and
+ * blues separate and the white score carries to the back wall; against the
+ * event gradient they sit on colours of similar weight, and a projector in a
+ * lit room washes a light ground out altogether.
  */
-export const EVENT_BACKGROUND =
-  'linear-gradient(158deg, oklch(0.58 0.27 348) 0%, oklch(0.63 0.24 356) 26%, '
-  + 'oklch(0.7 0.17 30) 52%, oklch(0.68 0.15 235) 78%, oklch(0.62 0.17 244) 100%)';
+export const BROADCAST_BACKGROUND =
+  'linear-gradient(160deg, oklch(0.21 0.05 250) 0%, oklch(0.26 0.07 255) 55%, '
+  + 'oklch(0.19 0.05 250) 100%)';
 
 /** Faint grid laid over a gradient, so a large flat area does not band. */
 export function gridTexture(opacity: number): React.CSSProperties {

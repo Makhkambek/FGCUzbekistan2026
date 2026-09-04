@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useSyncExternalStore } from 'react';
 import StandingsTable from '../StandingsTable';
 import { pickNextMatch } from '@/lib/next-match';
 import FullscreenButton from './FullscreenButton';
-import { EVENT_BACKGROUND, gridTexture } from '@/lib/brand';
+import { BROADCAST_BACKGROUND, gridTexture } from '@/lib/brand';
 import { matchClock, type ClockPeriod } from '@/lib/match-clock';
 import { matchLabel } from '@/lib/match-label';
 
@@ -312,7 +312,7 @@ export default function DisplayPage() {
       // Same broadcast gradient as the playoff screen: the qualification
       // rankings are on the projector between every match, and flat grey next
       // to the other two screens looked like a page that had failed to load.
-      <div style={{ minHeight: '100vh', background: EVENT_BACKGROUND, position: 'relative' }}>
+      <div style={{ minHeight: '100vh', background: BROADCAST_BACKGROUND, position: 'relative' }}>
         <div style={{ ...gridTexture(0.05), position: 'fixed' }} />
         <FullscreenButton />
         <header style={{ position: 'relative', padding: '26px 48px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 32 }}>
@@ -391,7 +391,7 @@ export default function DisplayPage() {
         padding: '40px 60px 34px', color: 'oklch(1 0 0)', fontFamily: F_SANS,
         // One gradient for every broadcast screen — the match screen used to
         // be dark navy, which made it look like a different event.
-        background: EVENT_BACKGROUND,
+        background: BROADCAST_BACKGROUND,
       }}>
         <div style={gridTexture(0.05)} />
 

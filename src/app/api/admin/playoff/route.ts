@@ -3,6 +3,7 @@ import { requireSessionApi } from '@/lib/auth/require-session';
 import { getAlliances } from '@/lib/db/alliances';
 import { insertMatches, listMatches } from '@/lib/db/matches';
 import { PLAYOFF_PAIRINGS } from '@/lib/alliances/playoff';
+import { qualificationBlockReason } from '@/lib/alliances/readiness';
 
 export async function GET() {
   if (!await requireSessionApi()) return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
@@ -23,6 +24,16 @@ export async function POST() {
     return NextResponse.json(
       { error: 'Some playoff matches have been played — the bracket cannot be rebuilt' }, { status: 409 });
   }
+
+  // The bracket is built from alliances, which are built from the final
+  // qualification ranking. Building it early would freeze the event on a
+  // ranking that has not happened yet, and there is no clean way back.
+  const qualMatches = await listMatches('qualification');
+  const notReady = qualificationBlockReason({
+    total: qualMatches.length,
+    played: qualMatches.filter((m) => m.played).length,
+  });
+  if (notReady) return NextResponse.json({ error: notReady }, { status: 409 });
 
   const alliances = await getAlliances();
   if (alliances.length !== 3 || alliances.some((a) => !a.pick1_team_id || !a.pick2_team_id)) {

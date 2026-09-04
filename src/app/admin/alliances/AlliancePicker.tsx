@@ -22,6 +22,10 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
   // request the draft used to look unlocked and offered to create a bracket
   // that the server would then refuse.
   const [playoffUnknown, setPlayoffUnknown] = useState(false);
+  // Why the draft is not open yet, straight from the server, so the page can
+  // say "4 qualification matches still to play" instead of letting a referee
+  // discover it by being refused.
+  const [notReady, setNotReady] = useState<string | null>(null);
 
   function load() {
     return Promise.all([
@@ -34,6 +38,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
         if (alliances.res.ok) {
           setState(alliances.data.state);
           setRanked(alliances.data.ranked);
+          setNotReady(alliances.data.notReadyReason ?? null);
           setError('');
         } else {
           setState(null);
@@ -176,9 +181,19 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
 
   const locked = !!playoff && playoff.matches > 0;
   const complete = state.every((a) => a.picks[0] !== null && a.picks[1] !== null);
+  // Unfinished qualification closes the draft exactly like an existing bracket
+  // does — captains come from the final ranking, and there is no clean way
+  // back once alliances are seated on a ranking that then changes.
+  const closed = locked || notReady !== null;
 
   return (
     <div className="space-y-6">
+      {notReady && !locked && (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2" role="alert">
+          {notReady}. The captains below are the standings as they are right now,
+          and they will keep moving until the last match is scored.
+        </p>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {state.map((a) => (
           <div key={a.seed} className="p-4 rounded-lg bg-white border border-gray-200 shadow-sm space-y-3">
@@ -187,8 +202,10 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
               <p className="text-sm text-gray-500">Captain: {teamNames[a.captain] ?? a.captain}</p>
             </div>
 
-            {locked ? (
-              <p className="text-xs text-gray-400">Locked — playoff matches already exist</p>
+            {closed ? (
+              <p className="text-xs text-gray-400">
+                {locked ? 'Locked — playoff matches already exist' : 'Waiting for qualification to finish'}
+              </p>
             ) : (
               ([0, 1] as const).map((slot) => {
                 const currentValue = a.picks[slot];
@@ -246,7 +263,7 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
         </p>
       )}
 
-      {complete && !playoffUnknown && (
+      {complete && !playoffUnknown && !notReady && (
         playoff && playoff.matches > 0 ? (
           <div className="bg-white rounded-lg p-4 space-y-2 border border-gray-200 shadow-sm">
             <p className="text-sm text-gray-700">
@@ -271,9 +288,11 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
         )
       )}
 
-      {locked ? (
+      {closed ? (
         <p className="text-xs text-gray-400">
-          Alliance selection is locked — playoff matches already exist
+          {locked
+            ? 'Alliance selection is locked — playoff matches already exist'
+            : 'Alliance selection opens when every qualification match has been scored'}
         </p>
       ) : (
         <div className="border-t border-gray-200 pt-4">

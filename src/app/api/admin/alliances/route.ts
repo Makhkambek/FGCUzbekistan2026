@@ -7,6 +7,7 @@ import { listTeams } from '@/lib/db/teams';
 import { listMatches } from '@/lib/db/matches';
 import { standingsFromRows } from '@/lib/standings';
 import { initialSelection, setPick, clearPick, NotEnoughTeamsError, MIN_TEAMS } from '@/lib/alliances/selection';
+import { qualificationBlockReason } from '@/lib/alliances/readiness';
 import type { SelectionState, PickSlot } from '@/lib/alliances/selection';
 
 const pickSchema = z.object({
@@ -45,6 +46,20 @@ async function playoffLockError(): Promise<ReturnType<typeof NextResponse.json> 
   );
 }
 
+/**
+ * Refuses a pick while qualification is unfinished. Clearing a slot and the
+ * full reset stay allowed: those only ever undo, and blocking them would trap
+ * an operator who seated a draft by mistake.
+ */
+async function qualificationNotReady(): Promise<ReturnType<typeof NextResponse.json> | null> {
+  const qualMatches = await listMatches('qualification');
+  const reason = qualificationBlockReason({
+    total: qualMatches.length,
+    played: qualMatches.filter((m) => m.played).length,
+  });
+  return reason ? NextResponse.json({ error: reason }, { status: 409 }) : null;
+}
+
 async function rankedTeamIds(): Promise<number[]> {
   const [teams, rows] = await Promise.all([listTeams(), listMatches('qualification')]);
   return standingsFromRows(teams.map((t) => t.id), rows).map((s) => s.teamId);
@@ -70,9 +85,14 @@ export async function GET() {
   if (!await requireSessionApi()) return unauthorized();
 
   const ranked = await rankedTeamIds();
+  const qualMatches = await listMatches('qualification');
+  const notReadyReason = qualificationBlockReason({
+    total: qualMatches.length,
+    played: qualMatches.filter((m) => m.played).length,
+  });
   try {
     const state = await currentState(ranked);
-    return NextResponse.json({ state, ranked });
+    return NextResponse.json({ state, ranked, notReadyReason });
   } catch {
     // initialSelection throws when fewer than MIN_TEAMS teams exist —
     // expected early in the tournament, must not surface as a 500.
@@ -85,6 +105,9 @@ export async function POST(req: NextRequest) {
 
   const lockError = await playoffLockError();
   if (lockError) return lockError;
+
+  const notReady = await qualificationNotReady();
+  if (notReady) return notReady;
 
   const parsed = pickSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Invalid data' }, { status: 400 });

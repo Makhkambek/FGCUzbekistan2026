@@ -30,7 +30,38 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
       <div className={`px-4 py-2 text-xs font-black uppercase tracking-widest ${highlight ? 'text-amber-700 bg-amber-50 border-y border-amber-200' : 'text-gray-500 bg-gray-50 border-y border-gray-200'}`}>
         {title}
       </div>
-      <div className="overflow-x-auto">
+      {/* On a phone the four-column table could only fit by scrolling
+          sideways, which reads as a broken page: the blue alliance sits off
+          the edge and nobody thinks to drag it into view. Below `sm` each
+          match becomes a stacked card instead — the same rows, no scrolling. */}
+      <div className="sm:hidden divide-y divide-gray-100">
+        {rows.map((m) => {
+          const phaseLabel = matchLabel(m.phase === 'playoff' ? 'playoff' : 'qualification', m.number);
+          const redWins = m.played && m.redScore !== null && m.blueScore !== null && m.redScore > m.blueScore;
+          const blueWins = m.played && m.redScore !== null && m.blueScore !== null && m.blueScore > m.redScore;
+          const hit = isHit(m);
+          return (
+            <div key={m.id} className={`px-3 py-2.5 ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : ''}`}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className={`font-mono font-black text-gray-900 ${roomy ? 'text-xl' : 'text-sm'}`}>{phaseLabel}</span>
+                {m.played
+                  ? <span className={`font-mono font-bold text-gray-900 ${roomy ? 'text-xl' : 'text-sm'}`}>{m.redScore} : {m.blueScore}</span>
+                  : <span className="text-gray-300 text-sm">—</span>}
+              </div>
+              <div className="mt-1.5 flex items-baseline gap-2">
+                <span className="shrink-0 w-10 text-[10px] font-bold uppercase tracking-wider text-red-400">Red</span>
+                <span className={`text-red-600 text-sm ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
+              </div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="shrink-0 w-10 text-[10px] font-bold uppercase tracking-wider text-blue-400">Blue</span>
+                <span className={`text-blue-600 text-sm ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden sm:block overflow-x-auto">
         <table className={`w-full text-sm ${roomy ? 'min-w-[520px]' : 'min-w-[420px]'}`}>
           <thead>
             <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
@@ -169,19 +200,25 @@ export default function StandingsTable() {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between border-b border-gray-200 px-4">
-        <div className="flex gap-1">
+      <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-3 sm:px-4">
+        {/* Four tabs do not fit across a phone: they used to wrap onto two
+            lines and drop "Finals" off the edge. They stay on one line and
+            scroll instead, which is what a tab strip is supposed to do. */}
+        <div className="flex gap-1 overflow-x-auto whitespace-nowrap">
           <button
             onClick={() => setView('standings')}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+            className={`shrink-0 px-2.5 sm:px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
               activeView === 'standings' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
             }`}
           >
-            Team rankings
+            {/* "Rankings" is what FIRST Global's own results page calls this
+                tab, and the short form is what lets four tabs fit a phone. */}
+            <span className="sm:hidden">Rankings</span>
+            <span className="hidden sm:inline">Team rankings</span>
           </button>
           <button
             onClick={() => setView('matches')}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+            className={`shrink-0 px-2.5 sm:px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
               activeView === 'matches' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
             }`}
           >
@@ -192,7 +229,7 @@ export default function StandingsTable() {
           {skills.length > 0 && (
             <button
               onClick={() => setView('skills')}
-              className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+              className={`shrink-0 px-2.5 sm:px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
                 activeView === 'skills' ? 'text-emerald-600 border-emerald-600' : 'text-gray-400 border-transparent hover:text-gray-700'
               }`}
             >
@@ -202,7 +239,7 @@ export default function StandingsTable() {
           {playoffMatches.length > 0 && (
             <button
               onClick={() => setView('finals')}
-              className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+              className={`shrink-0 px-2.5 sm:px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
                 activeView === 'finals' ? 'text-amber-600 border-amber-600' : 'text-gray-400 border-transparent hover:text-gray-700'
               }`}
             >
@@ -212,10 +249,16 @@ export default function StandingsTable() {
         </div>
         {lastUpdate && (
           stale
-            ? <span className="text-[10px] text-red-600 font-semibold">
-                NO CONNECTION · last update {lastUpdate.toLocaleTimeString()}
+            // A lost connection is worth the space on any screen; a healthy
+            // one is not, and on a phone the word "live" was eating the tab
+            // beside it.
+            ? <span className="shrink-0 text-[10px] text-red-600 font-semibold">
+                <span className="sm:hidden">NO CONNECTION</span>
+                <span className="hidden sm:inline">
+                  NO CONNECTION · last update {lastUpdate.toLocaleTimeString()}
+                </span>
               </span>
-            : <span className="text-[10px] text-green-600 font-semibold animate-pulse">live</span>
+            : <span className="hidden sm:inline shrink-0 text-[10px] text-green-600 font-semibold animate-pulse">live</span>
         )}
       </div>
 

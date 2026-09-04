@@ -1,0 +1,87 @@
+# =============================================================================
+# FGC scoring — CI/CD
+#
+#   test   : lint + types + vitest, every branch and merge request
+#   build  : docker image via kaniko -> GitLab registry, main only
+#   deploy : ssh to the server, docker compose up, main only
+#
+# The server is shared with artline-fullstack, which owns /root/.env and
+# /root/docker-compose.yml (ports 8000, 5672, 15672). Everything of ours lives
+# under /root/fgc, compose project "fgc", ports 3000 and 3307 — nothing overlaps.
+#
+# CI/CD variables (Settings > CI/CD > Variables):
+#   GIT_KEY      File   — private SSH key for the deploy user
+#   USER         Var    — ssh user on the server (e.g. root)
+#   HOST         Var    — server address
+#   ENV          File   — production .env (MYSQL_ROOT_PASSWORD, MYSQL_PASSWORD,
+#                         SESSION_SECRET), see .env.example
+# =============================================================================
+
+stages:
+  - test
+  - build
+  - deploy
+
+test:
+  stage: test
+  image: node:22.20.0
+  cache:
+    key: npm
+    paths:
+      - .npm/
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm run lint
+    - npx tsc --noEmit
+    - npm test
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - >
+      /kaniko/executor
+      --context $CI_PROJECT_DIR
+      --dockerfile $CI_PROJECT_DIR/Dockerfile
+      --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+deploy:
+  stage: deploy
+  image: ubuntu:latest
+  needs:
+    - build
+  before_script:
+    - apt-get update -y && apt-get install openssh-client -y
+    - eval $(ssh-agent -s)
+    - chmod 400 "$GIT_KEY"
+    - ssh-add "$GIT_KEY"
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - sed -i 's|IMAGE|'"$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"'|g' docker-compose.prod.yml
+    - ssh $USER@$HOST "mkdir -p /root/fgc/db"
+    - scp $ENV $USER@$HOST:/root/fgc/.env
+    - scp docker-compose.prod.yml $USER@$HOST:/root/fgc/docker-compose.yml
+    - scp db/schema.sql $USER@$HOST:/root/fgc/db/schema.sql
+  script:
+    - |
+      ssh $USER@$HOST "
+        cd /root/fgc &&
+        docker login $CI_REGISTRY \
+          --username $CI_REGISTRY_USER \
+          --password-stdin <<< $CI_REGISTRY_PASSWORD &&
+        docker compose pull &&
+        docker compose up -d &&
+        docker image prune -f
+      "
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

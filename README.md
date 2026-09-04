@@ -57,6 +57,42 @@ $ npx tsx scripts/create-admin.ts admin
 
 Поменять `DATABASE_URL` в `.env.local` на адрес серверной базы. Код не меняется.
 
+## Docker и деплой на сервер
+
+Тот же образ и пайплайн, что у `sezam_fullstack` / `artline-fullstack`:
+`Dockerfile` собирает standalone-сборку Next.js, GitLab CI на `main`
+собирает образ через kaniko, кладёт его в registry проекта и по ssh
+поднимает `docker compose` на сервере. На всех ветках и MR перед этим
+гоняются `npm run lint`, `npx tsc --noEmit`, `npm test`.
+
+Локально (нужен `.env`, пример в `.env.example` — раздел Docker):
+
+```bash
+docker compose up -d --build       # http://localhost:3000
+DATABASE_URL=mysql://fgc:<MYSQL_PASSWORD>@127.0.0.1:3307/fgc npx tsx scripts/create-admin.ts admin
+```
+
+`db/schema.sql` применяется автоматически при первом создании тома MySQL.
+Миграции из `db/migrations/` на уже существующей базе — руками, как раньше:
+
+```bash
+docker compose exec -T db mysql -uroot -p"$MYSQL_ROOT_PASSWORD" fgc < db/migrations/<файл>.sql
+```
+
+Бэкап в Docker: `docker compose exec db mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction fgc > backups/fgc-$(date +%Y%m%d-%H%M%S).sql`.
+
+**Сервер общий с artline-fullstack.** artline живёт в `/root`
+(`/root/.env`, `/root/docker-compose.yml`, порты 8000/5672/15672), поэтому
+FGC деплоится в `/root/fgc` под compose-проектом `fgc` с портами 3000 и 3307,
+оба привязаны к `127.0.0.1`. Ничего не пересекается. Снаружи нужен nginx на
+порт 3000 — подходит `web/setup-nginx-ssl.sh -t backend -o 3000` из artline.
+
+Переменные CI/CD (Settings → CI/CD → Variables): `GIT_KEY` (File, ssh-ключ),
+`USER`, `HOST`, `ENV` (File — продовый `.env` с
+`MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD`, `SESSION_SECRET`). Админа на сервере
+создать той же командой `create-admin.ts` через ssh-туннель:
+`ssh -L 3307:127.0.0.1:3307 root@<host>`.
+
 ## Порядок работы в день турнира
 
 1. **Добавить команды** (`/admin`, минимум 9 — иначе не хватит для трёх альянсов

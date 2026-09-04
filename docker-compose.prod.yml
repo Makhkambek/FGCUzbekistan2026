@@ -1,0 +1,41 @@
+# Server compose. CI replaces IMAGE with the registry tag and copies this file
+# to /root/fgc/docker-compose.yml together with .env and db/schema.sql.
+# /root/fgc, not /root: artline-fullstack already deploys to /root on this server.
+# The app binds to localhost only — put nginx in front of it (port 3000).
+name: fgc
+
+services:
+  db:
+    image: mysql:8.4
+    restart: always
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: fgc
+      MYSQL_USER: fgc
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_volume:/var/lib/mysql
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "127.0.0.1:3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  app:
+    image: IMAGE
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_URL: mysql://fgc:${MYSQL_PASSWORD}@db:3306/fgc
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_volume:

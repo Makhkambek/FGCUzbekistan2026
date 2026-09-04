@@ -47,3 +47,4 @@ node_modules
 # sdd workspace (review artifacts, not source)
 .superpowers/
 backups/
+*.key

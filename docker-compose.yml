@@ -1,0 +1,44 @@
+# Local image build + MySQL. Reads secrets from ./.env (see .env.example).
+#   docker compose up -d --build
+name: fgc
+
+services:
+  db:
+    image: mysql:8.4
+    restart: always
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: fgc
+      MYSQL_USER: fgc
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_volume:/var/lib/mysql
+      # Applied once, when the volume is first created. Later schema changes
+      # are db/migrations/*.sql, applied by hand as before.
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    # 3307 so it does not clash with a Homebrew MySQL on 3306.
+    # Used by `npx tsx scripts/create-admin.ts` from the host (see README).
+    ports:
+      - "127.0.0.1:3307:3306"
+    healthcheck:
+      # TCP on purpose: the init-time temporary server is socket-only.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build: .
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_URL: mysql://fgc:${MYSQL_PASSWORD}@db:3306/fgc
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_volume:

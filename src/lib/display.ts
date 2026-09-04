@@ -6,6 +6,10 @@ export type DisplayPhase = 'standings' | 'live' | 'result';
 export interface DisplayState {
   phase: DisplayPhase;
   matchId: number | null;
+  /** Server time the referee started the match, or null when nothing is live. */
+  startedAt: number | null;
+  /** Server time this state was read, so a client can correct its own clock. */
+  serverNow: number;
 }
 
 export interface AllianceLineup {
@@ -22,6 +26,9 @@ export interface DisplayLive {
   matchPhase: 'qualification' | 'playoff';
   red: AllianceLineup;
   blue: AllianceLineup;
+  /** Both in server time — the projector counts 2:30 down from the difference. */
+  startedAt: number | null;
+  serverNow: number;
 }
 
 export interface AllianceBreakdown {
@@ -67,6 +74,8 @@ export function buildDisplayPayload(
       matchPhase: match.phase,
       red: { teams: red },
       blue: { teams: blue },
+      startedAt: state.startedAt,
+      serverNow: state.serverNow,
     };
   }
 

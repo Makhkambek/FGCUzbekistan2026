@@ -4,6 +4,7 @@ import StandingsTable from '../StandingsTable';
 import { pickNextMatch } from '@/lib/next-match';
 import FullscreenButton from './FullscreenButton';
 import { EVENT_BACKGROUND, gridTexture } from '@/lib/brand';
+import { matchClock, type ClockPeriod } from '@/lib/match-clock';
 
 interface AllianceLineup { teams: string[] }
 interface AllianceBreakdown { suppression: number; multiplier: number; partnerClimbPoints: number; penalty: number }
@@ -11,7 +12,11 @@ interface AllianceResult extends AllianceLineup, AllianceBreakdown { score: numb
 
 type DisplayPayload =
   | { phase: 'standings' }
-  | { phase: 'live'; matchNumber: number; matchPhase: 'qualification' | 'playoff'; red: AllianceLineup; blue: AllianceLineup }
+  | {
+      phase: 'live'; matchNumber: number; matchPhase: 'qualification' | 'playoff';
+      red: AllianceLineup; blue: AllianceLineup;
+      startedAt: number | null; serverNow: number;
+    }
   | {
       phase: 'result'; matchNumber: number; matchPhase: 'qualification' | 'playoff';
       red: AllianceResult; blue: AllianceResult;
@@ -76,6 +81,95 @@ function useClock() {
   return now;
 }
 
+/**
+ * The 2:30 countdown, ticking against the SERVER's clock.
+ *
+ * The projector laptop's own clock can sit minutes away from the scoring
+ * server's, so the payload carries both the start and the server's "now": the
+ * difference between that and the local clock is the offset applied on every
+ * tick. Ticking four times a second, not once — a countdown that skips from
+ * 0:02 to 0:00 in the hall's eyeline looks broken.
+ */
+function useMatchClock(startedAt: number | null | undefined, serverNow: number | undefined) {
+  const [now, setNow] = useState<number | null>(null);
+  const offset = useRef(0);
+
+  useEffect(() => {
+    if (serverNow !== undefined) offset.current = serverNow - Date.now();
+  }, [serverNow]);
+
+  useEffect(() => {
+    const tick = () => setNow(Date.now() + offset.current);
+    tick();
+    const t = setInterval(tick, 250);
+    return () => clearInterval(t);
+  }, []);
+
+  if (startedAt === undefined || now === null) return null;
+  return matchClock(startedAt ?? null, now);
+}
+
+const SOUNDS = {
+  start: '/sounds/start.wav',
+  endgame: '/sounds/endgame.wav',
+  end: '/sounds/end.wav',
+} as const;
+
+/**
+ * A browser refuses to play audio until someone has interacted with the page,
+ * and a projector page nobody ever clicks is exactly that case — so the screen
+ * asks for one click and unlocks all three clips at once by playing them
+ * silently. Without it the hall would get a countdown and no whistle, with
+ * nothing on screen explaining why.
+ */
+function useMatchSounds(period: ClockPeriod | null, matchKey: string | null) {
+  const [unlocked, setUnlocked] = useState(false);
+  const players = useRef<Record<string, HTMLAudioElement>>({});
+  const previous = useRef<{ key: string | null; period: ClockPeriod | null }>({ key: null, period: null });
+
+  useEffect(() => {
+    for (const [name, src] of Object.entries(SOUNDS)) {
+      const el = new Audio(src);
+      el.preload = 'auto';
+      players.current[name] = el;
+    }
+  }, []);
+
+  const unlock = () => {
+    for (const el of Object.values(players.current)) {
+      const wasMuted = el.muted;
+      el.muted = true;
+      el.play().then(() => { el.pause(); el.currentTime = 0; el.muted = wasMuted; }).catch(() => {});
+    }
+    setUnlocked(true);
+  };
+
+  useEffect(() => {
+    const play = (name: keyof typeof SOUNDS) => {
+      const el = players.current[name];
+      if (!el) return;
+      el.currentTime = 0;
+      el.play().catch(() => {});
+    };
+
+    const prev = previous.current;
+    previous.current = { key: matchKey, period };
+
+    if (!unlocked || period === null) return;
+
+    // A screen opened in the middle of a match must not blast the start
+    // whistle at the hall: only a transition seen on THIS screen fires a clip.
+    if (matchKey !== prev.key) return;
+    if (prev.period === period) return;
+
+    if (prev.period === 'pre' && period === 'running') play('start');
+    else if (prev.period === 'running' && period === 'endgame') play('endgame');
+    else if ((prev.period === 'running' || prev.period === 'endgame') && period === 'over') play('end');
+  }, [period, matchKey, unlocked]);
+
+  return { unlocked, unlock };
+}
+
 export default function DisplayPage() {
   const [data, setData] = useState<DisplayPayload | null>(null);
   const [matches, setMatches] = useState<MatchSummary[] | null>(null);
@@ -83,6 +177,13 @@ export default function DisplayPage() {
   const [allianceStandings, setAllianceStandings] = useState<AllianceStanding[] | null>(null);
   const scale = useCanvasScale();
   const clock = useClock();
+
+  const live = data?.phase === 'live' ? data : null;
+  const matchClockState = useMatchClock(
+    live ? live.startedAt : undefined, live ? live.serverNow : undefined);
+  const sounds = useMatchSounds(
+    matchClockState?.period ?? null,
+    live ? `${live.matchPhase}-${live.matchNumber}` : null);
 
   // A projector nobody is watching closely is the worst place for a silent
   // failure: without this the screen keeps showing the last score it got,
@@ -272,7 +373,21 @@ export default function DisplayPage() {
           <PlayoffScreen standings={allianceStandings!} nextMatchLabel={nextMatchLabel} clock={clock} />
         )}
         {data && data.phase !== 'standings' && (
-          <MatchScreen data={data} nextMatchLabel={nextMatchLabel} clock={clock} />
+          <MatchScreen data={data} nextMatchLabel={nextMatchLabel} clock={clock}
+            matchClock={data.phase === 'live' ? matchClockState : null} />
+        )}
+        {live && !sounds.unlocked && (
+          <button onClick={sounds.unlock} style={{
+            // Sits in the empty middle of the ticker: the alliance panels above
+            // carry the scores, and this disappears on the first tap anyway.
+            position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 30,
+            padding: '10px 26px', borderRadius: 999, cursor: 'pointer',
+            background: 'oklch(0.78 0.16 85)', color: 'oklch(0.25 0.05 60)', border: 'none',
+            fontFamily: F_MONO, fontSize: 18, fontWeight: 700, letterSpacing: '0.1em',
+            textTransform: 'uppercase', boxShadow: '0 10px 40px oklch(0.2 0.05 60 / 0.5)',
+          }}>
+            Tap once to turn the whistle on
+          </button>
         )}
       </div>
       <FullscreenButton />
@@ -316,9 +431,10 @@ function Badge({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function MatchScreen({ data, nextMatchLabel, clock }: {
+function MatchScreen({ data, nextMatchLabel, clock, matchClock }: {
   data: Extract<DisplayPayload, { phase: 'live' | 'result' }>;
   nextMatchLabel: string | null; clock: Date | null;
+  matchClock: ReturnType<typeof useMatchClock>;
 }) {
   const isResult = data.phase === 'result';
   const result = isResult ? (data as Extract<DisplayPayload, { phase: 'result' }>) : null;
@@ -341,18 +457,7 @@ function MatchScreen({ data, nextMatchLabel, clock }: {
               {data.matchPhase === 'playoff' ? 'Playoff' : 'Qualification'} · Tashkent
             </div>
           </div>
-          {data.phase === 'live' && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderRadius: 10,
-              background: 'oklch(0.6 0.21 25 / 0.16)', border: '1px solid oklch(0.62 0.21 25 / 0.55)',
-            }}>
-              <span style={{
-                width: 12, height: 12, borderRadius: '50%', background: 'oklch(0.66 0.22 25)',
-                animation: 'fgcPulse 1.5s ease-in-out infinite',
-              }} />
-              <span style={{ fontFamily: F_MONO, fontSize: 19, fontWeight: 600, letterSpacing: '0.2em' }}>LIVE</span>
-            </div>
-          )}
+          {data.phase === 'live' && <MatchCountdown clock={matchClock} />}
         </div>
       </div>
 
@@ -367,6 +472,53 @@ function MatchScreen({ data, nextMatchLabel, clock }: {
 
       <Ticker label={nextMatchLabel} clock={clock} />
     </>
+  );
+}
+
+/**
+ * The match clock, sized for the back of the hall.
+ *
+ * The last 30 seconds turn amber and say ENDGAME: the whistle carries only so
+ * far in a loud hall, and a team that misses it still sees the colour change
+ * from the field. Before the referee starts the match the clock sits at 2:30
+ * greyed out, so nothing on screen ever pretends a match is running.
+ */
+function MatchCountdown({ clock }: { clock: ReturnType<typeof useMatchClock> }) {
+  const period = clock?.period ?? 'pre';
+  // Endgame and time-up are filled solid, not tinted: a translucent panel over
+  // the event's pink gradient washes out at the back of a bright hall, and
+  // those are the two moments the hall must not miss.
+  const theme = period === 'endgame'
+    ? { bg: 'oklch(0.82 0.17 82)', border: 'oklch(0.88 0.15 85)', text: 'oklch(0.25 0.06 60)', caption: 'Endgame' }
+    : period === 'over'
+      ? { bg: 'oklch(0.55 0.22 25)', border: 'oklch(0.65 0.22 25)', text: 'oklch(1 0 0)', caption: 'Time' }
+      : period === 'pre'
+        ? { bg: 'oklch(1 0 0 / 0.08)', border: 'oklch(1 0 0 / 0.3)', text: 'oklch(1 0 0 / 0.6)', caption: 'Ready' }
+        : { bg: 'oklch(0.6 0.21 25 / 0.16)', border: 'oklch(0.62 0.21 25 / 0.55)', text: 'oklch(1 0 0)', caption: 'Live' };
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+      // The canvas is a fixed 1920x1080: a taller clock here pushes the
+      // alliance panels' TOTAL row off the bottom of the screen. This is as
+      // large as the digits go without costing the hall the scores.
+      padding: '10px 26px', borderRadius: 12, minWidth: 310,
+      background: theme.bg, border: `1px solid ${theme.border}`,
+      animation: period === 'endgame' ? 'fgcPulse 1s ease-in-out infinite' : undefined,
+    }}>
+      <span style={{
+        fontFamily: F_MONO, fontSize: 17, fontWeight: 700, letterSpacing: '0.28em',
+        textTransform: 'uppercase', color: theme.text, opacity: 0.92,
+      }}>
+        {theme.caption}
+      </span>
+      <span style={{
+        fontFamily: F_MONO, fontSize: 74, fontWeight: 700, lineHeight: 1,
+        letterSpacing: '0.02em', color: theme.text, fontVariantNumeric: 'tabular-nums',
+      }}>
+        {clock?.label ?? '2:30'}
+      </span>
+    </div>
   );
 }
 

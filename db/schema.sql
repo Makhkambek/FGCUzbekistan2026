@@ -64,6 +64,10 @@ CREATE TABLE display_state (
   id TINYINT PRIMARY KEY DEFAULT 1,
   phase ENUM('standings','live','result') NOT NULL DEFAULT 'standings',
   match_id INT NULL,
+  -- When the referee started the match on the field. The projector counts the
+  -- 2:30 down from this, so it must come from the server: three screens
+  -- reading their own laptop clocks would disagree with each other.
+  started_at DATETIME(3) NULL,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (match_id) REFERENCES matches(id),
   CONSTRAINT chk_display_state_single_row CHECK (id = 1)

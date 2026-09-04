@@ -19,16 +19,41 @@ const row = (over: Partial<Omit<MatchRow, 'constructor'>> = {}) => ({
 
 const teamNames = { 1: 'Alpha', 2: 'Bravo', 3: 'Charlie', 4: 'Delta', 5: 'Echo', 6: 'Foxtrot' };
 
+// The display state carries the match clock as well now (startedAt / serverNow);
+// these cases are about the payload's content, so they use a fixed clock.
+const state = (phase: 'standings' | 'live' | 'result', matchId: number | null,
+               startedAt: number | null = null) =>
+  ({ phase, matchId, startedAt, serverNow: 1_700_000_000_000 });
+
 describe('buildDisplayPayload — standings', () => {
   it('фаза standings отдаётся как есть, независимо от матча', () => {
-    const p = buildDisplayPayload({ phase: 'standings', matchId: null }, null, teamNames);
+    const p = buildDisplayPayload(state('standings', null), null, teamNames);
     expect(p).toEqual({ phase: 'standings' });
+  });
+});
+
+describe('buildDisplayPayload — часы матча', () => {
+  // Проектор считает 2:30 от момента, когда судья нажал Start. Оба времени
+  // серверные: ноутбук у проектора и телефоны в зале иначе показали бы разное.
+  it('на живом экране отдаёт момент старта и текущее время сервера', () => {
+    const p = buildDisplayPayload(state('live', 1, 1_699_999_900_000), row(), teamNames);
+    expect(p).toMatchObject({ phase: 'live', startedAt: 1_699_999_900_000, serverNow: 1_700_000_000_000 });
+  });
+
+  it('матч, выведенный без старта, часов не получает', () => {
+    const p = buildDisplayPayload(state('live', 1, null), row(), teamNames);
+    expect(p).toMatchObject({ phase: 'live', startedAt: null });
+  });
+
+  it('на экране результата часов нет вовсе', () => {
+    const p = buildDisplayPayload(state('result', 1), row({ played: 1 }), teamNames);
+    expect(p).not.toHaveProperty('startedAt');
   });
 });
 
 describe('buildDisplayPayload — live', () => {
   it('возвращает состав red/blue альянсов по именам команд', () => {
-    const p = buildDisplayPayload({ phase: 'live', matchId: 1 }, row(), teamNames);
+    const p = buildDisplayPayload(state('live', 1), row(), teamNames);
     expect(p.phase).toBe('live');
     if (p.phase !== 'live') throw new Error('unreachable');
     expect(p.matchNumber).toBe(3);
@@ -38,13 +63,13 @@ describe('buildDisplayPayload — live', () => {
   });
 
   it('незнакомый id команды подставляется как —', () => {
-    const p = buildDisplayPayload({ phase: 'live', matchId: 1 }, row(), { 1: 'Alpha' });
+    const p = buildDisplayPayload(state('live', 1), row(), { 1: 'Alpha' });
     if (p.phase !== 'live') throw new Error('unreachable');
     expect(p.red.teams).toEqual(['Alpha', '—', '—']);
   });
 
   it('если матч не найден (устаревший matchId) — откат на standings', () => {
-    const p = buildDisplayPayload({ phase: 'live', matchId: 999 }, null, teamNames);
+    const p = buildDisplayPayload(state('live', 999), null, teamNames);
     expect(p).toEqual({ phase: 'standings' });
   });
 });
@@ -52,7 +77,7 @@ describe('buildDisplayPayload — live', () => {
 describe('buildDisplayPayload — result', () => {
   it('красные выигрывают — winner red, счёт посчитан', () => {
     const p = buildDisplayPayload(
-      { phase: 'result', matchId: 1 },
+      state('result', 1),
       row({ suppression_red: 100, suppression_blue: 50 }),
       teamNames,
     );
@@ -65,7 +90,7 @@ describe('buildDisplayPayload — result', () => {
 
   it('синие выигрывают — winner blue', () => {
     const p = buildDisplayPayload(
-      { phase: 'result', matchId: 1 },
+      state('result', 1),
       row({ suppression_red: 20, suppression_blue: 120 }),
       teamNames,
     );
@@ -75,7 +100,7 @@ describe('buildDisplayPayload — result', () => {
 
   it('равный счёт — winner tie', () => {
     const p = buildDisplayPayload(
-      { phase: 'result', matchId: 1 },
+      state('result', 1),
       row({ suppression_red: 40, suppression_blue: 40 }),
       teamNames,
     );
@@ -85,13 +110,13 @@ describe('buildDisplayPayload — result', () => {
   });
 
   it('если матч не найден — откат на standings', () => {
-    const p = buildDisplayPayload({ phase: 'result', matchId: 999 }, null, teamNames);
+    const p = buildDisplayPayload(state('result', 999), null, teamNames);
     expect(p).toEqual({ phase: 'standings' });
   });
 
   it('содержит разбивку по категориям манула 2026 года (suppression/multiplier/partner climbs)', () => {
     const p = buildDisplayPayload(
-      { phase: 'result', matchId: 1 },
+      state('result', 1),
       row({
         suppression_red: 100, suppression_blue: 50, extinguisher: 30,
         climb_red1: 'zone2', climb_red2: 'zone1',
@@ -110,7 +135,7 @@ describe('buildDisplayPayload — result', () => {
 
   it('penalty — это фактически добавленные сопернику очки за фолы, а не вычет у нарушителя', () => {
     const p = buildDisplayPayload(
-      { phase: 'result', matchId: 1 },
+      state('result', 1),
       row({ suppression_red: 100, suppression_blue: 100, minor_fouls_blue: 1 }),
       teamNames,
     );
@@ -133,7 +158,7 @@ describe('buildDisplayPayload — красная карточка в плей-о
 
   it('обнуляет весь альянс и отдаёт победу сопернику', () => {
     const p = buildDisplayPayload(
-      { phase: 'result', matchId: 1 }, playoffRow({ card_red2: 'red' }), teamNames);
+      state('result', 1), playoffRow({ card_red2: 'red' }), teamNames);
     if (p.phase !== 'result') throw new Error('unreachable');
     expect(p.red.score).toBe(0);
     expect(p.blue.score).toBe(150);
@@ -142,7 +167,7 @@ describe('buildDisplayPayload — красная карточка в плей-о
 
   it('белая карточка в плей-офф счёт альянса не трогает', () => {
     const p = buildDisplayPayload(
-      { phase: 'result', matchId: 1 }, playoffRow({ card_red2: 'white' }), teamNames);
+      state('result', 1), playoffRow({ card_red2: 'white' }), teamNames);
     if (p.phase !== 'result') throw new Error('unreachable');
     expect(p.red.score).toBe(200);
     expect(p.winner).toBe('red');
@@ -150,7 +175,7 @@ describe('buildDisplayPayload — красная карточка в плей-о
 
   it('в квалификации красная карточка альянс не обнуляет', () => {
     const p = buildDisplayPayload(
-      { phase: 'result', matchId: 1 },
+      state('result', 1),
       row({ played: 1, suppression_red: 200, suppression_blue: 150, card_red2: 'red' }),
       teamNames);
     if (p.phase !== 'result') throw new Error('unreachable');

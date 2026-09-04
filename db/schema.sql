@@ -74,16 +74,42 @@ CREATE TABLE match_snapshots (
   INDEX idx_phase_created (phase, created_at)
 ) ENGINE=InnoDB;
 
+-- The skills phase: one team on the field at a time, three attempts each.
+-- Its own table on purpose — a match row needs six teams, a skills attempt has
+-- one, and bending the match table to allow empty slots would put the
+-- qualification schedule, the playoff and the ranking at risk.
+CREATE TABLE skills_attempts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  round INT NOT NULL,
+  position INT NOT NULL,
+  team_id INT NOT NULL,
+  alliance ENUM('red','blue') NOT NULL DEFAULT 'red',
+  played BOOLEAN NOT NULL DEFAULT FALSE,
+  suppression INT NOT NULL DEFAULT 0,
+  human_balls INT NOT NULL DEFAULT 0,
+  climb ENUM('none','contact','zone1','zone2','zone3') NOT NULL DEFAULT 'none',
+  extinguisher INT NOT NULL DEFAULT 0,
+  minor_fouls INT NOT NULL DEFAULT 0,
+  major_fouls INT NOT NULL DEFAULT 0,
+  card ENUM('none','yellow','white','red') NOT NULL DEFAULT 'none',
+  FOREIGN KEY (team_id) REFERENCES teams(id),
+  UNIQUE KEY uniq_round_team (round, team_id),
+  INDEX idx_order (round, position)
+) ENGINE=InnoDB;
+
 CREATE TABLE display_state (
   id TINYINT PRIMARY KEY DEFAULT 1,
   phase ENUM('standings','live','result') NOT NULL DEFAULT 'standings',
   match_id INT NULL,
+  -- The projector points at either a match or a skills attempt, never both.
+  skills_attempt_id INT NULL,
   -- When the referee started the match on the field. The projector counts the
   -- 2:30 down from this, so it must come from the server: three screens
   -- reading their own laptop clocks would disagree with each other.
   started_at DATETIME(3) NULL,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (match_id) REFERENCES matches(id),
+  FOREIGN KEY (skills_attempt_id) REFERENCES skills_attempts(id),
   CONSTRAINT chk_display_state_single_row CHECK (id = 1)
 ) ENGINE=InnoDB;
 

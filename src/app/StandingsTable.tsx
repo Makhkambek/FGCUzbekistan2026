@@ -6,6 +6,9 @@ interface Standing {
   teamId: number; name: string; rankingScore: number;
   played: number; best: number; suppressionTotal: number;
 }
+interface SkillsRow {
+  teamId: number; name: string; total: number; best: number; attemptsPlayed: number;
+}
 interface Match {
   id: number; number: number; phase: string; played: boolean;
   red: string[]; blue: string[]; redScore: number | null; blueScore: number | null;
@@ -68,8 +71,8 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
 }
 
 export default function StandingsTable() {
-  const [data, setData] = useState<{ standings: Standing[]; matches: Match[] } | null>(null);
-  const [view, setView] = useState<'standings' | 'matches' | 'finals'>('standings');
+  const [data, setData] = useState<{ standings: Standing[]; matches: Match[]; skills?: SkillsRow[] } | null>(null);
+  const [view, setView] = useState<'standings' | 'matches' | 'finals' | 'skills'>('standings');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [query, setQuery] = useState('');
   // The 10s polls are not guaranteed to come back in order: a delayed request
@@ -149,7 +152,10 @@ export default function StandingsTable() {
   // The Finals tab disappears if the bracket is rebuilt away underneath a
   // spectator who is standing on it; without this they would be left staring
   // at an empty table with no tab highlighted.
-  const activeView = view === 'finals' && playoffMatches.length === 0 ? 'matches' : view;
+  const skills = data.skills ?? [];
+  const activeView = (view === 'finals' && playoffMatches.length === 0)
+    || (view === 'skills' && skills.length === 0)
+      ? 'matches' : view;
   const visibleMatches = activeView === 'finals' ? playoffMatches : qualMatches;
   // Counted over what this tab actually shows: "Found 3" while looking at a
   // list of one is worse than no count at all.
@@ -177,6 +183,16 @@ export default function StandingsTable() {
           </button>
           {/* The finals get their own tab, and only once they exist — an empty
               tab through the whole qualification day is just a dead end. */}
+          {skills.length > 0 && (
+            <button
+              onClick={() => setView('skills')}
+              className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+                activeView === 'skills' ? 'text-emerald-600 border-emerald-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+              }`}
+            >
+              Skills
+            </button>
+          )}
           {playoffMatches.length > 0 && (
             <button
               onClick={() => setView('finals')}
@@ -197,7 +213,32 @@ export default function StandingsTable() {
         )}
       </div>
 
-      {activeView === 'standings' ? (
+      {activeView === 'skills' ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[320px] border-collapse">
+            <thead>
+              <tr>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 w-8">#</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Team</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-semibold text-gray-500 border-b border-gray-200">Skills total</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-semibold text-gray-500 border-b border-gray-200">Best attempt</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-semibold text-gray-500 border-b border-gray-200">Attempts</th>
+              </tr>
+            </thead>
+            <tbody className="text-base md:text-lg">
+              {skills.map((s, i) => (
+                <tr key={s.teamId} className="hover:bg-gray-50 border-b border-gray-100 last:border-0">
+                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-gray-400 w-8">{i + 1}</td>
+                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-emerald-700 font-medium">{s.name}</td>
+                  <td className="px-2 sm:px-6 py-2 sm:py-3 text-right"><strong className="font-mono">{s.total}</strong></td>
+                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right font-mono text-gray-500">{s.best}</td>
+                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right font-mono text-gray-500">{s.attemptsPlayed}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : activeView === 'standings' ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[320px] border-collapse">
             <thead>

@@ -23,6 +23,13 @@ type DisplayPayload =
       phase: 'result'; matchNumber: number; matchPhase: 'qualification' | 'playoff';
       red: AllianceResult; blue: AllianceResult; rankKind: RankKind;
       extinguisher: number; coopertition: number; winner: 'red' | 'blue' | 'tie';
+    }
+  | {
+      phase: 'skills-live' | 'skills-result';
+      round: number; teamName: string; alliance: 'red' | 'blue';
+      score: number | null; suppression: number; humanBalls: number; humanPoints: number;
+      climbMultiplier: number; extinguisher: number;
+      startedAt: number | null; serverNow: number;
     };
 
 interface MatchSummary {
@@ -200,11 +207,14 @@ export default function DisplayPage() {
   );
 
   const live = data?.phase === 'live' ? data : null;
+  const skillsLive = data?.phase === 'skills-live' ? data : null;
+  const onClock = live ?? skillsLive;
   const matchClockState = useMatchClock(
-    live ? live.startedAt : undefined, live ? live.serverNow : undefined);
+    onClock ? onClock.startedAt : undefined, onClock ? onClock.serverNow : undefined);
   const sounds = useMatchSounds(
     matchClockState?.period ?? null,
-    live ? `${live.matchPhase}-${live.matchNumber}` : null);
+    live ? `${live.matchPhase}-${live.matchNumber}`
+      : skillsLive ? `skills-${skillsLive.teamName}-${skillsLive.round}` : null);
 
   // A projector nobody is watching closely is the worst place for a silent
   // failure: without this the screen keeps showing the last score it got,
@@ -335,13 +345,18 @@ export default function DisplayPage() {
     );
   }
 
-  const nextMatch = matches
-    ? pickNextMatch(
-        matches,
-        data && data.phase !== 'standings'
-          ? { phase: data.matchPhase, number: data.matchNumber } : null,
-        playoffBracketExists)
-    : null;
+  // A skills attempt on screen is not a match, so nothing there is "on
+  // screen" as far as the ticker is concerned.
+  const matchOnScreen = data && (data.phase === 'live' || data.phase === 'result')
+    ? { phase: data.matchPhase, number: data.matchNumber } : null;
+  const nextMatch = matches ? pickNextMatch(matches, matchOnScreen, playoffBracketExists) : null;
+
+  // Narrowed once here: the JSX conditions below are too tangled for the
+  // compiler to follow them into the props.
+  const skillsScreenData = data && (data.phase === 'skills-live' || data.phase === 'skills-result')
+    ? data : null;
+  const matchScreenData = data && (data.phase === 'live' || data.phase === 'result')
+    ? data : null;
 
   // matches === null means /api/standings has not answered yet (or is
   // failing) — that is not the same as "nothing left to play", which is what
@@ -393,11 +408,14 @@ export default function DisplayPage() {
         {data?.phase === 'standings' && isPlayoffMode && (
           <PlayoffScreen standings={allianceStandings!} nextMatchLabel={nextMatchLabel} clock={clock} />
         )}
-        {data && data.phase !== 'standings' && (
-          <MatchScreen data={data} nextMatchLabel={nextMatchLabel} clock={clock}
-            matchClock={data.phase === 'live' ? matchClockState : null} clockVariant={clockVariant} />
+        {skillsScreenData && (
+          <SkillsScreen data={skillsScreenData} clock={clock} matchClock={matchClockState} />
         )}
-        {live && !sounds.unlocked && (
+        {matchScreenData && (
+          <MatchScreen data={matchScreenData} nextMatchLabel={nextMatchLabel} clock={clock}
+            matchClock={matchScreenData.phase === 'live' ? matchClockState : null} clockVariant={clockVariant} />
+        )}
+        {onClock && !sounds.unlocked && (
           <button onClick={sounds.unlock} style={{
             // Sits in the empty middle of the ticker: the alliance panels above
             // carry the scores, and this disappears on the first tap anyway.
@@ -641,6 +659,100 @@ function CenterMatchCountdown({ clock }: { clock: ReturnType<typeof useMatchCloc
       }}>
         {clock?.label ?? '2:30'}
       </span>
+    </div>
+  );
+}
+
+/**
+ * The skills screen: one team, its side of the field, and the same clock the
+ * matches use. The human player's balls get their own line — five points for
+ * one ball is the whole point of the phase, and burying it inside a total
+ * would leave the hall unable to follow the score.
+ */
+function SkillsScreen({ data, clock, matchClock }: {
+  data: Extract<DisplayPayload, { phase: 'skills-live' | 'skills-result' }>;
+  clock: Date | null;
+  matchClock: ReturnType<typeof useMatchClock>;
+}) {
+  const isResult = data.phase === 'skills-result';
+  const theme = data.alliance === 'red' ? ALLIANCE_THEME.red : ALLIANCE_THEME.blue;
+
+  return (
+    <>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 40, marginBottom: 26 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 34 }}>
+          <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 82, lineHeight: 0.9, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+            Skills
+          </div>
+          <Badge label="Attempt" value={data.round} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 30 }}>
+          <div style={{ ...OVER_GRADIENT, textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 34, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+              FGC Uzbekistan 2026
+            </div>
+            <div style={{ fontFamily: F_MONO, fontSize: 17, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'oklch(1 0 0 / 0.88)' }}>
+              Skills · Tashkent
+            </div>
+          </div>
+          {!isResult && <MatchCountdown clock={matchClock} />}
+        </div>
+      </div>
+
+      <style>{'@keyframes fgcPulse { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }'}</style>
+
+      <div style={{ position: 'relative', flex: '1 1 0%', minHeight: 0, display: 'grid', gridTemplateColumns: '1fr', gap: 40 }}>
+        <div style={{
+          borderRadius: 24, background: theme.gradient, boxShadow: theme.shadow,
+          display: 'flex', flexDirection: 'column', overflow: 'hidden', color: 'oklch(1 0 0)',
+        }}>
+          <div style={{
+            padding: '16px 30px', fontFamily: F_MONO, fontSize: 21, fontWeight: 600,
+            letterSpacing: '0.28em', textTransform: 'uppercase', background: 'oklch(0 0 0 / 0.16)',
+          }}>
+            {theme.label}
+          </div>
+          <div style={{ padding: '28px 30px 0' }}>
+            <div style={{ fontFamily: F_SANS, fontWeight: 700, fontSize: 74, lineHeight: 1.05 }}>
+              {data.teamName}
+            </div>
+          </div>
+          <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18, padding: '20px 30px' }}>
+            <SkillsRow label="Robot balls" value={data.suppression} />
+            <SkillsRow label={`Human player · ${data.humanBalls} × 5`} value={data.humanPoints} accent />
+            <SkillsRow label="Climb multiplier" value={`×${data.climbMultiplier.toFixed(2)}`} />
+            <SkillsRow label="Extinguisher" value={data.extinguisher} />
+          </div>
+          <div style={{
+            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+            padding: '20px 30px', background: 'oklch(0 0 0 / 0.16)',
+          }}>
+            <span style={{ fontFamily: F_HEAD, fontWeight: 700, fontSize: 46, textTransform: 'uppercase' }}>Total</span>
+            <span style={{ fontFamily: F_MONO, fontWeight: 700, fontSize: 76 }}>
+              {data.score === null ? '—' : data.score}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <Ticker label={null} clock={clock} />
+    </>
+  );
+}
+
+function SkillsRow({ label, value, accent = false }: {
+  label: string; value: number | string; accent?: boolean;
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+      padding: '10px 16px', borderRadius: 12,
+      background: accent ? 'oklch(1 0 0 / 0.22)' : 'oklch(1 0 0 / 0.1)',
+    }}>
+      <span style={{ fontFamily: F_MONO, fontSize: 26, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+        {label}
+      </span>
+      <span style={{ fontFamily: F_MONO, fontWeight: 700, fontSize: 38 }}>{value}</span>
     </div>
   );
 }

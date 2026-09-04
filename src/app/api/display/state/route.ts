@@ -5,6 +5,8 @@ import { listTeams } from '@/lib/db/teams';
 import { getAlliances } from '@/lib/db/alliances';
 import { standingsFromRows } from '@/lib/standings';
 import { buildDisplayPayload } from '@/lib/display';
+import { getAttempt } from '@/lib/db/skills';
+import { buildSkillsPayload } from '@/lib/skills/display';
 import type { RankMap } from '@/lib/display';
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +40,18 @@ async function rankMap(phase: 'qualification' | 'playoff', teamIds: number[]): P
 
 export async function GET() {
   const state = await getDisplayState();
+
+  // A skills attempt owns the screen the same way a match does — one team on
+  // the field instead of six.
+  if (state.skillsAttemptId !== null && state.phase !== 'standings') {
+    const attempt = await getAttempt(state.skillsAttemptId);
+    if (attempt) {
+      const teams = await listTeams();
+      const name = teams.find((t) => t.id === attempt.team_id)?.name ?? '—';
+      return NextResponse.json(buildSkillsPayload(state, attempt, name));
+    }
+  }
+
   const [match, teams] = await Promise.all([
     state.matchId !== null ? getMatchById(state.matchId) : null,
     listTeams(),

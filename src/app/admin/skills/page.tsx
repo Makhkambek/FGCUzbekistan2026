@@ -9,7 +9,10 @@ export default async function SkillsPage() {
   await requireSession();
   const [teams, attempts] = await Promise.all([listTeams(), listAttempts()]);
   const names = Object.fromEntries(teams.map((t) => [t.id, t.name]));
-  const table = await skillsTable(teams.map((t) => t.id));
+  // Only the teams actually in the order belong in the skills table — a team
+  // that is not taking part sitting there on nil points reads as a team that
+  // tried and scored nothing.
+  const table = await skillsTable([...new Set(attempts.map((a) => a.team_id))]);
 
   return (
     <>

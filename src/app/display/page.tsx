@@ -691,9 +691,12 @@ function SkillsScreen({ data, clock, matchClock }: {
 }) {
   const isResult = data.phase === 'skills-result';
 
-  // Only the side the team plays from carries numbers; the other panel gets
-  // its lineup alone, which is what makes every one of its rows read "—".
-  const scored: SkillsPanelData = {
+  // Only the side the team plays from carries numbers, and only once the
+  // attempt is over: while it is running nothing has been scored yet, and a
+  // wall of zeroes on the projector reads as "this team has failed" rather
+  // than "the referee has not filled the form in". A live match screen shows
+  // dashes for the same reason.
+  const scored: SkillsPanelData | null = !isResult ? null : {
     ...(data.alliance === 'red' ? data.red : data.blue),
     score: data.score,
     suppression: data.suppression,
@@ -701,12 +704,12 @@ function SkillsScreen({ data, clock, matchClock }: {
     multiplier: data.climbMultiplier,
     penalty: data.penalty,
   };
-  const red = data.alliance === 'red' ? scored : data.red;
-  const blue = data.alliance === 'blue' ? scored : data.blue;
+  const red = data.alliance === 'red' && scored ? scored : data.red;
+  const blue = data.alliance === 'blue' && scored ? scored : data.blue;
   // The extinguisher is shared between alliances in a match; in skills it
   // belongs to the one team on the field, so the empty panel must not show it.
   const sharedFor = (side: 'red' | 'blue') =>
-    side === data.alliance ? { extinguisher: data.extinguisher, coopertition: 0 } : null;
+    scored && side === data.alliance ? { extinguisher: data.extinguisher, coopertition: 0 } : null;
 
   return (
     <>

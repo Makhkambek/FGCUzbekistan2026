@@ -96,14 +96,14 @@ export default function SkillsPanel({ teams, attempts, table }: {
             operator is reading down a list of who is in the hall and ticking
             names off it, and a tick is unambiguous where a shaded chip is
             not. */}
-        <div className="grid gap-px bg-gray-200 border border-gray-200 rounded-lg overflow-hidden sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {teams.map((t) => {
             const on = selected.includes(t.id);
             return (
               <button key={t.id} onClick={() => toggle(t.id)} disabled={anyPlayed}
                 aria-pressed={on}
-                className={`flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  on ? 'bg-amber-50 text-amber-900 font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  on ? 'bg-amber-50 border-amber-300 text-amber-900 font-semibold' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                 }`}>
                 <span className={`w-4 h-4 shrink-0 rounded border flex items-center justify-center ${
                   on ? 'bg-amber-600 border-amber-600 text-white' : 'bg-white border-gray-300'
@@ -181,10 +181,10 @@ export default function SkillsPanel({ teams, attempts, table }: {
                   <td className="px-4 py-2.5 w-28 text-center font-mono">
                     {a.played ? a.score : <span className="text-gray-300">—</span>}
                   </td>
-                  <td className="px-4 py-2.5 w-28 text-center">
+                  <td className="px-4 py-2.5 w-32 text-center">
                     {a.played
-                      ? <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">Scored</span>
-                      : <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">Not scored</span>}
+                      ? <span className="text-xs whitespace-nowrap px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">Scored</span>
+                      : <span className="text-xs whitespace-nowrap px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">Not scored</span>}
                   </td>
                   <td className="px-4 py-2.5 w-24 text-right">
                     <button onClick={() => router.push(`/admin/skills/${a.id}`)}

@@ -32,6 +32,38 @@ describe('buildDisplayPayload — standings', () => {
   });
 });
 
+describe('buildDisplayPayload — место рядом с командой', () => {
+  // На экране матча зал должен видеть, кто эти команды в турнире. В
+  // квалификации это место команды в рейтинге, в плей-оффе — номер альянса,
+  // один и тот же для всех троих.
+  it('в квалификации отдаёт место каждой команды', () => {
+    const p = buildDisplayPayload(state('live', 1), row(), teamNames,
+      { 1: 3, 2: 7, 3: 1, 4: 2, 5: 9, 6: 4 });
+    expect(p).toMatchObject({ rankKind: 'team', red: { ranks: [3, 7, 1] }, blue: { ranks: [2, 9, 4] } });
+  });
+
+  it('в плей-оффе у всех троих один номер альянса', () => {
+    const p = buildDisplayPayload(state('live', 1), row({ phase: 'playoff' }), teamNames,
+      { 1: 1, 2: 1, 3: 1, 4: 3, 5: 3, 6: 3 });
+    expect(p).toMatchObject({ rankKind: 'alliance', red: { ranks: [1, 1, 1] }, blue: { ranks: [3, 3, 3] } });
+  });
+
+  it('команда без места не ломает экран', () => {
+    const p = buildDisplayPayload(state('live', 1), row(), teamNames, { 1: 3 });
+    expect(p).toMatchObject({ red: { ranks: [3, null, null] } });
+  });
+
+  it('мест не передали вовсе — пусто, но не падает', () => {
+    const p = buildDisplayPayload(state('live', 1), row(), teamNames);
+    expect(p).toMatchObject({ red: { ranks: [null, null, null] } });
+  });
+
+  it('на экране результата места тоже есть', () => {
+    const p = buildDisplayPayload(state('result', 1), row({ played: 1 }), teamNames, { 1: 5 });
+    expect(p).toMatchObject({ red: { ranks: [5, null, null] } });
+  });
+});
+
 describe('buildDisplayPayload — часы матча', () => {
   // Проектор считает 2:30 от момента, когда судья нажал Start. Оба времени
   // серверные: ноутбук у проектора и телефоны в зале иначе показали бы разное.

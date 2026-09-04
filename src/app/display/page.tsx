@@ -7,7 +7,8 @@ import { EVENT_BACKGROUND, gridTexture } from '@/lib/brand';
 import { matchClock, type ClockPeriod } from '@/lib/match-clock';
 import { matchLabel } from '@/lib/match-label';
 
-interface AllianceLineup { teams: string[] }
+interface AllianceLineup { teams: string[]; ranks: (number | null)[] }
+type RankKind = 'team' | 'alliance';
 interface AllianceBreakdown { suppression: number; multiplier: number; partnerClimbPoints: number; penalty: number }
 interface AllianceResult extends AllianceLineup, AllianceBreakdown { score: number }
 
@@ -15,12 +16,12 @@ type DisplayPayload =
   | { phase: 'standings' }
   | {
       phase: 'live'; matchNumber: number; matchPhase: 'qualification' | 'playoff';
-      red: AllianceLineup; blue: AllianceLineup;
+      red: AllianceLineup; blue: AllianceLineup; rankKind: RankKind;
       startedAt: number | null; serverNow: number;
     }
   | {
       phase: 'result'; matchNumber: number; matchPhase: 'qualification' | 'playoff';
-      red: AllianceResult; blue: AllianceResult;
+      red: AllianceResult; blue: AllianceResult; rankKind: RankKind;
       extinguisher: number; coopertition: number; winner: 'red' | 'blue' | 'tie';
     };
 
@@ -501,10 +502,10 @@ function MatchScreen({ data, nextMatchLabel, clock, matchClock, clockVariant }: 
         gridTemplateColumns: showCenterClock ? '1fr auto 1fr' : '1fr 1fr',
         gap: showCenterClock ? 28 : 40,
       }}>
-        <AlliancePanel color="red" data={data.red} isWinner={result?.winner === 'red'}
+        <AlliancePanel color="red" data={data.red} isWinner={result?.winner === 'red'} rankKind={data.rankKind}
           shared={result ? { extinguisher: result.extinguisher, coopertition: result.coopertition } : null} />
         {showCenterClock && <CenterMatchCountdown clock={matchClock} />}
-        <AlliancePanel color="blue" data={data.blue} isWinner={result?.winner === 'blue'}
+        <AlliancePanel color="blue" data={data.blue} isWinner={result?.winner === 'blue'} rankKind={data.rankKind}
           shared={result ? { extinguisher: result.extinguisher, coopertition: result.coopertition } : null} />
       </div>
 
@@ -669,11 +670,12 @@ const BREAKDOWN_ROWS: { key: keyof AllianceBreakdown | 'extinguisher' | 'coopert
   { key: 'penalty', label: 'Opponent fouls', swatch: 'oklch(0.6 0.2 25)' },
 ];
 
-function AlliancePanel({ color, data, isWinner, shared }: {
+function AlliancePanel({ color, data, isWinner, shared, rankKind }: {
   color: 'red' | 'blue';
   data: AllianceLineup | AllianceResult;
   isWinner: boolean;
   shared: { extinguisher: number; coopertition: number } | null;
+  rankKind: RankKind;
 }) {
   const breakdown = 'score' in data ? data : null;
   const theme = ALLIANCE_THEME[color];
@@ -711,8 +713,29 @@ function AlliancePanel({ color, data, isWinner, shared }: {
 
       <div style={{ display: 'flex', flexDirection: 'column', padding: '16px 30px 6px' }}>
         {data.teams.map((name, i) => (
-          <div key={i} style={{ padding: '16px 0', borderBottom: '1px solid oklch(1 0 0 / 0.28)' }}>
-            <div style={{ fontFamily: F_SANS, fontWeight: 600, fontSize: 38, lineHeight: 1.1 }}>{name}</div>
+          <div key={i} style={{
+            padding: '16px 0', borderBottom: '1px solid oklch(1 0 0 / 0.28)',
+            display: 'flex', alignItems: 'center', gap: 16,
+          }}>
+            {/* Who this team is in the tournament: its qualification place
+                during quals, its alliance's seed once the playoff starts.
+                A team with no standing yet gets nothing rather than a zero. */}
+            {data.ranks[i] !== null && data.ranks[i] !== undefined && (
+              <span style={{
+                flexShrink: 0, minWidth: 62, textAlign: 'center',
+                padding: '4px 10px', borderRadius: 8,
+                background: 'oklch(1 0 0 / 0.2)', border: '1px solid oklch(1 0 0 / 0.35)',
+                fontFamily: F_MONO, fontWeight: 700, fontSize: 26, lineHeight: 1.15,
+              }}>
+                {rankKind === 'alliance' ? `A${data.ranks[i]}` : `#${data.ranks[i]}`}
+              </span>
+            )}
+            <div style={{
+              fontFamily: F_SANS, fontWeight: 600, fontSize: 38, lineHeight: 1.1,
+              minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {name}
+            </div>
           </div>
         ))}
       </div>

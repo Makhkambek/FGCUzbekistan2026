@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { matchLabel } from '@/lib/match-label';
 import { computeMatchScores } from '@/lib/scoring/match';
 import type { ClimbPosition, CardType } from '@/lib/scoring/types';
 import type { MatchRow } from '@/lib/db/matches';
@@ -26,8 +27,10 @@ const SELECT_CLASS = 'px-2 py-1 text-base min-h-11 rounded-md bg-white text-gray
 
 type Trio<T> = [T, T, T];
 
-export default function MatchForm({ match, teamNames }: {
+export default function MatchForm({ match, teamNames, nextMatch }: {
   match: MatchRow; teamNames: Record<number, string>;
+  /** The next unplayed match of this phase, offered after a successful save. */
+  nextMatch: { id: number; label: string } | null;
 }) {
   const router = useRouter();
   const [suppressionRed, setSuppressionRed] = useState(match.suppression_red);
@@ -58,6 +61,10 @@ export default function MatchForm({ match, teamNames }: {
   const [startStatus, setStartStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [startError, setStartError] = useState('');
   const [going, setGoing] = useState(false);
+  // The browser's own confirm() is a grey box in the corner of the screen that
+  // a referee under pressure clicks through without reading. This one sits
+  // where the eyes already are — right under the Save button.
+  const [confirming, setConfirming] = useState(false);
   const [goStatus, setGoStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [goError, setGoError] = useState('');
   const [clampNote, setClampNote] = useState('');
@@ -81,7 +88,7 @@ export default function MatchForm({ match, teamNames }: {
             minorFouls: minorBlue, majorFouls: majorBlue },
   });
 
-  async function save() {
+  async function save({ confirmed = false } = {}) {
     // The Save button is disabled while a request is in flight, but Enter in
     // any number field calls this directly and never looks at the button. Two
     // overlapping PUTs then race, and the one that lands last wins — a
@@ -93,11 +100,11 @@ export default function MatchForm({ match, teamNames }: {
     // real result for six teams and, from then on, blocks schedule/playoff
     // regeneration. A misclick on an already-played match is just a
     // correction, so re-saves stay frictionless and skip this prompt.
-    if (!match.played && !window.confirm(
-      `Match ${match.match_number} has not been played yet. Save the result and mark the match as played?`,
-    )) {
+    if (!match.played && !confirmed) {
+      setConfirming(true);
       return;
     }
+    setConfirming(false);
 
     setSaving(true);
     setSaveStatus('idle');
@@ -278,7 +285,9 @@ export default function MatchForm({ match, teamNames }: {
   return (
     <div className="bg-white rounded-lg p-6 space-y-4 border border-gray-200 shadow-sm">
       <div className="flex items-center gap-3">
-        <h3 className="font-semibold text-gray-900">Match {match.match_number}</h3>
+        {/* Same name the hall and the projector use: a qualification match is
+            Q13 here too, not "Match 13". */}
+        <h3 className="font-semibold text-gray-900">{matchLabel(match.phase, match.match_number)}</h3>
         {match.played ? (
           <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
             Played
@@ -373,12 +382,48 @@ export default function MatchForm({ match, teamNames }: {
               {resetting ? 'Resetting…' : 'Reset'}
             </button>
           )}
-          <button onClick={save} disabled={saving || resetting}
+          <button onClick={() => save()} disabled={saving || resetting}
             className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>
+
+      {confirming && (
+        <div className="border-t border-gray-100 pt-4 flex flex-col items-center gap-3 text-center">
+          <p className="text-sm text-gray-800 max-w-md">
+            <strong>{matchLabel(match.phase, match.match_number)}</strong> has not been played yet.
+            Saving records the result for all six teams and locks the schedule.
+          </p>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setConfirming(false)}
+              className="px-4 py-2 rounded-md bg-white text-gray-700 font-semibold border border-gray-300 hover:bg-gray-50">
+              Cancel
+            </button>
+            <button onClick={() => save({ confirmed: true })} disabled={saving}
+              className="px-5 py-2 rounded-md bg-amber-600 text-white font-bold hover:bg-amber-700 disabled:opacity-50">
+              {saving ? 'Saving…' : 'Yes, save the result'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* After a save the next thing a referee does is score the next match,
+          so it is offered here rather than back through the list. */}
+      {saveStatus === 'ok' && nextMatch && (
+        <div className="border-t border-gray-100 pt-4 flex flex-col items-center gap-2">
+          <span className="text-sm text-green-700">✓ Saved</span>
+          <button onClick={() => router.push(`/admin/matches/${nextMatch.id}`)}
+            className="px-5 py-2 rounded-md bg-blue-600 text-white font-bold hover:bg-blue-700">
+            Next match: {nextMatch.label} →
+          </button>
+        </div>
+      )}
+      {saveStatus === 'ok' && !nextMatch && (
+        <p className="border-t border-gray-100 pt-4 text-center text-sm text-gray-500">
+          ✓ Saved — no matches left to score in this phase
+        </p>
+      )}
     </div>
   );
 }

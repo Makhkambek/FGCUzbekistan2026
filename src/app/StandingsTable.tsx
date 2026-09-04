@@ -43,13 +43,10 @@ function TeamName({ name, onTeam, className = '' }: {
   );
 }
 
-function MatchSection({ title, rows, highlight = false, roomy = false, isHit, onTeam, mine }: {
+function MatchSection({ title, rows, highlight = false, isHit, onTeam, mine }: {
   title: string;
   rows: Match[];
   highlight?: boolean;
-  /** Three finals in a table built for twelve qualification rows leaves half
-   *  the screen blank; the shorter list can afford bigger type and more air. */
-  roomy?: boolean;
   isHit: (m: Match) => boolean;
   /** Opens a team's own card. Absent inside that card — it is already open. */
   onTeam?: (name: string) => void;
@@ -78,37 +75,44 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit, on
           const blueWins = m.played && m.redScore !== null && m.blueScore !== null && m.blueScore > m.redScore;
           const hit = isHit(m);
           return (
-            <div key={m.id} className={`px-3 py-2.5 ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : ''}`}>
-              <div className={`font-medium ${!m.played ? 'text-gray-500' : redWins ? 'text-red-600' : blueWins ? 'text-blue-600' : 'text-emerald-600'} ${roomy ? 'text-lg' : 'text-sm'}`}>
+            <div key={m.id} className={`flex items-stretch gap-2 px-2 py-2 ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : ''}`}>
+              {/* Their phone layout keeps the match name in a column of its
+                  own on the left, with the two alliance bands stacked beside
+                  it — not above them. */}
+              <div className={`w-20 shrink-0 self-center text-xs leading-tight font-medium ${
+                !m.played ? 'text-gray-500' : redWins ? 'text-red-600' : blueWins ? 'text-blue-600' : 'text-emerald-600'
+              }`}>
                 {phaseLabel}
               </div>
-              <div className="mt-1.5 flex items-baseline gap-2 rounded bg-red-50 px-2 py-1">
-                <span className={`grow text-sm ${redWins ? 'font-black' : 'font-medium'}`}>
-                  {m.red.map((name, i) => (
-                    <span key={name}>
-                      {i > 0 && <span className="text-red-300"> · </span>}
-                      <TeamName name={name} onTeam={onTeam}
-                        className={name === mine ? 'text-red-900 font-black underline' : 'text-red-700'} />
-                    </span>
-                  ))}
-                </span>
-                {m.played
-                  ? <span className={`shrink-0 font-mono text-red-900 ${redWins ? 'font-black' : 'font-medium'}`}>{m.redScore}</span>
-                  : <span className="shrink-0 text-red-300">—</span>}
-              </div>
-              <div className="mt-1 flex items-baseline gap-2 rounded bg-blue-50 px-2 py-1">
-                <span className={`grow text-sm ${blueWins ? 'font-black' : 'font-medium'}`}>
-                  {m.blue.map((name, i) => (
-                    <span key={name}>
-                      {i > 0 && <span className="text-blue-300"> · </span>}
-                      <TeamName name={name} onTeam={onTeam}
-                        className={name === mine ? 'text-blue-900 font-black underline' : 'text-blue-700'} />
-                    </span>
-                  ))}
-                </span>
-                {m.played
-                  ? <span className={`shrink-0 font-mono text-blue-900 ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blueScore}</span>
-                  : <span className="shrink-0 text-blue-300">—</span>}
+              <div className="min-w-0 grow">
+                <div className="flex items-baseline gap-2 bg-red-50 px-2 py-1.5">
+                  <span className={`grow min-w-0 text-xs ${redWins ? 'font-bold' : 'font-normal'}`}>
+                    {m.red.map((name, i) => (
+                      <span key={name}>
+                        {i > 0 && <span className="text-red-300"> · </span>}
+                        <TeamName name={name} onTeam={onTeam}
+                          className={name === mine ? 'text-red-900 font-bold underline' : 'text-red-700'} />
+                      </span>
+                    ))}
+                  </span>
+                  <span className={`shrink-0 w-10 text-right text-xs ${redWins ? 'font-bold' : 'font-normal'} ${m.played ? 'text-gray-900' : 'text-red-300'}`}>
+                    {m.played ? m.redScore : '—'}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2 bg-blue-50 px-2 py-1.5">
+                  <span className={`grow min-w-0 text-xs ${blueWins ? 'font-bold' : 'font-normal'}`}>
+                    {m.blue.map((name, i) => (
+                      <span key={name}>
+                        {i > 0 && <span className="text-blue-300"> · </span>}
+                        <TeamName name={name} onTeam={onTeam}
+                          className={name === mine ? 'text-blue-900 font-bold underline' : 'text-blue-700'} />
+                      </span>
+                    ))}
+                  </span>
+                  <span className={`shrink-0 w-10 text-right text-xs ${blueWins ? 'font-bold' : 'font-normal'} ${m.played ? 'text-gray-900' : 'text-blue-300'}`}>
+                    {m.played ? m.blueScore : '—'}
+                  </span>
+                </div>
               </div>
             </div>
           );
@@ -121,7 +125,7 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit, on
           the end rather than one "123 : 45" string. Nothing has to be read to
           see who won — the eye lands on the bold number in the coloured cell. */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className={`w-full text-sm ${roomy ? 'min-w-[520px]' : 'min-w-[420px]'}`}>
+        <table className="w-full text-sm min-w-[560px]">
           <tbody className="divide-y divide-gray-100">
             {rows.map((m) => {
               const phaseLabel = longMatchLabel(m.phase, m.number);
@@ -131,11 +135,11 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit, on
               const labelColour = !m.played ? 'text-gray-500'
                 : redWins ? 'text-red-600' : blueWins ? 'text-blue-600' : 'text-emerald-600';
               return (
-                <tr key={m.id} className={`${roomy ? '[&>td]:py-7 sm:[&>td]:py-12' : ''} ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : ''}`}>
-                  <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap w-44 sm:w-56">
+                <tr key={m.id} className={` ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : ''}`}>
+                  <td className="px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap w-40 sm:w-52">
                     {/* No "tie" caption: on their page a drawn match says so
                         by turning the label green, and nothing else. */}
-                    <span className={`font-medium ${labelColour} ${roomy ? 'text-lg sm:text-2xl' : 'text-sm'}`}>
+                    <span className={`font-medium ${labelColour} text-sm`}>
                       {phaseLabel}
                     </span>
                   </td>
@@ -143,29 +147,33 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit, on
                       three names line up down the list the way theirs do, so a
                       team can be found by running the eye down one column. */}
                   {m.red.map((name, i) => (
-                    <td key={`r${i}`} className={`px-2 sm:px-3 py-2 sm:py-3 ${
+                    <td key={`r${i}`} className={`px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap w-24 sm:w-28 ${
                       name === mine ? 'bg-red-500' : hit ? '' : 'bg-red-50'}`}>
                       <TeamName name={name} onTeam={onTeam}
-                        className={`${name === mine ? 'text-white' : 'text-red-700'} ${roomy ? 'text-base sm:text-xl' : 'text-sm'} ${redWins ? 'font-bold' : 'font-normal'}`} />
+                        className={`${name === mine ? 'text-white' : 'text-red-700'} text-sm ${redWins ? 'font-bold' : 'font-normal'}`} />
                     </td>
                   ))}
                   {m.blue.map((name, i) => (
-                    <td key={`b${i}`} className={`px-2 sm:px-3 py-2 sm:py-3 ${
+                    <td key={`b${i}`} className={`px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap w-24 sm:w-28 ${
                       name === mine ? 'bg-blue-600' : hit ? '' : 'bg-blue-50'}`}>
                       <TeamName name={name} onTeam={onTeam}
-                        className={`${name === mine ? 'text-white' : 'text-blue-700'} ${roomy ? 'text-base sm:text-xl' : 'text-sm'} ${blueWins ? 'font-bold' : 'font-normal'}`} />
+                        className={`${name === mine ? 'text-white' : 'text-blue-700'} text-sm ${blueWins ? 'font-bold' : 'font-normal'}`} />
                     </td>
                   ))}
-                  <td className={`px-2 sm:px-4 py-2 sm:py-3 text-right w-16 sm:w-24 ${hit ? '' : 'bg-red-100'}`}>
+                  <td className={`px-2 sm:px-3 py-2 sm:py-3 text-right w-14 sm:w-16 ${hit ? '' : 'bg-red-100'}`}>
                     {m.played
-                      ? <span className={`text-gray-900 ${redWins ? 'font-bold' : 'font-normal'} ${roomy ? 'text-xl sm:text-3xl' : 'text-sm'}`}>{m.redScore}</span>
+                      ? <span className={`text-gray-900 ${redWins ? 'font-bold' : 'font-normal'} text-sm`}>{m.redScore}</span>
                       : <span className="text-red-300">—</span>}
                   </td>
-                  <td className={`px-2 sm:px-4 py-2 sm:py-3 text-right w-16 sm:w-24 ${hit ? '' : 'bg-blue-100'}`}>
+                  <td className={`px-2 sm:px-3 py-2 sm:py-3 text-right w-14 sm:w-16 ${hit ? '' : 'bg-blue-100'}`}>
                     {m.played
-                      ? <span className={`text-gray-900 ${blueWins ? 'font-bold' : 'font-normal'} ${roomy ? 'text-xl sm:text-3xl' : 'text-sm'}`}>{m.blueScore}</span>
+                      ? <span className={`text-gray-900 ${blueWins ? 'font-bold' : 'font-normal'} text-sm`}>{m.blueScore}</span>
                       : <span className="text-blue-300">—</span>}
                   </td>
+                  {/* Their rows do not stretch: the coloured blocks are only
+                      as wide as they need to be, and the rest of the row is
+                      the card's own white. */}
+                  <td className="w-full" />
                 </tr>
               );
             })}
@@ -596,7 +604,7 @@ export default function StandingsTable() {
             </div>
           </div>
           {playoffMatches.length > 0 && (
-            <MatchSection title="Finals Matches" rows={playoffMatches} highlight roomy isHit={isHit} onTeam={setCardTeam} />
+            <MatchSection title="Finals Matches" rows={playoffMatches} highlight isHit={isHit} onTeam={setCardTeam} />
           )}
           <MatchSection title="Qualification Matches" rows={qualMatches} isHit={isHit} onTeam={setCardTeam} />
         </div>

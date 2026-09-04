@@ -1,6 +1,5 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
-import { matchLabel } from '@/lib/match-label';
 
 interface Standing {
   teamId: number; name: string; rankingScore: number;
@@ -16,6 +15,17 @@ interface Match {
   red: string[]; blue: string[]; redScore: number | null; blueScore: number | null;
 }
 
+/**
+ * How the board names a match in its own list: spelled out, the way FIRST
+ * Global's results page writes "Round Robin Match 4".
+ *
+ * The short form stays where it is announced and where space is tight — the
+ * projector, the referee's list — so `matchLabel` is left alone.
+ */
+function longMatchLabel(phase: string, number: number): string {
+  return phase === 'playoff' ? `Finals Match ${number}` : `Qualification Match ${number}`;
+}
+
 function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: {
   title: string;
   rows: Match[];
@@ -27,8 +37,14 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
 }) {
   return (
     <div>
-      <div className={`px-4 py-2 text-xs font-black uppercase tracking-widest ${highlight ? 'text-amber-700 bg-amber-50 border-y border-amber-200' : 'text-gray-500 bg-gray-50 border-y border-gray-200'}`}>
-        {title}
+      {/* A centred pill, the way their page heads "Round Robin Matches" — not
+          a left-aligned bar of small capitals. */}
+      <div className="flex justify-center py-4 bg-gray-50/60 border-y border-gray-100">
+        <span className={`rounded-full border px-5 py-1.5 text-sm font-medium ${
+          highlight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-gray-200 bg-white text-gray-700'
+        }`}>
+          {title}
+        </span>
       </div>
       {/* On a phone the four-column table could only fit by scrolling
           sideways, which reads as a broken page: the blue alliance sits off
@@ -36,13 +52,13 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
           match becomes a stacked card instead — the same rows, no scrolling. */}
       <div className="sm:hidden divide-y divide-gray-100">
         {rows.map((m) => {
-          const phaseLabel = matchLabel(m.phase === 'playoff' ? 'playoff' : 'qualification', m.number);
+          const phaseLabel = longMatchLabel(m.phase, m.number);
           const redWins = m.played && m.redScore !== null && m.blueScore !== null && m.redScore > m.blueScore;
           const blueWins = m.played && m.redScore !== null && m.blueScore !== null && m.blueScore > m.redScore;
           const hit = isHit(m);
           return (
             <div key={m.id} className={`px-3 py-2.5 ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : ''}`}>
-              <div className={`font-mono font-black ${!m.played ? 'text-gray-500' : redWins ? 'text-red-600' : blueWins ? 'text-blue-600' : 'text-emerald-600'} ${roomy ? 'text-xl' : 'text-sm'}`}>
+              <div className={`font-medium ${!m.played ? 'text-gray-500' : redWins ? 'text-red-600' : blueWins ? 'text-blue-600' : 'text-emerald-600'} ${roomy ? 'text-lg' : 'text-sm'}`}>
                 {phaseLabel}
                 {m.played && !redWins && !blueWins && (
                   <span className="ml-2 text-[10px] font-sans uppercase tracking-wider text-emerald-600">tie</span>
@@ -74,7 +90,7 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
         <table className={`w-full text-sm ${roomy ? 'min-w-[520px]' : 'min-w-[420px]'}`}>
           <tbody className="divide-y divide-gray-100">
             {rows.map((m) => {
-              const phaseLabel = matchLabel(m.phase === 'playoff' ? 'playoff' : 'qualification', m.number);
+              const phaseLabel = longMatchLabel(m.phase, m.number);
               const redWins = m.played && m.redScore !== null && m.blueScore !== null && m.redScore > m.blueScore;
               const blueWins = m.played && m.redScore !== null && m.blueScore !== null && m.blueScore > m.redScore;
               const tie = m.played && m.redScore !== null && m.redScore === m.blueScore;
@@ -83,8 +99,8 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
                 : redWins ? 'text-red-600' : blueWins ? 'text-blue-600' : 'text-emerald-600';
               return (
                 <tr key={m.id} className={`${roomy ? '[&>td]:py-7 sm:[&>td]:py-12' : ''} ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : ''}`}>
-                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap w-24 sm:w-32">
-                    <span className={`font-mono font-black ${labelColour} ${roomy ? 'text-xl sm:text-3xl' : 'text-xs sm:text-sm'}`}>
+                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap w-44 sm:w-56">
+                    <span className={`font-medium ${labelColour} ${roomy ? 'text-lg sm:text-2xl' : 'text-sm'}`}>
                       {phaseLabel}
                     </span>
                     {tie && <span className="ml-2 text-[10px] uppercase tracking-wider text-emerald-600">tie</span>}
@@ -219,30 +235,29 @@ export default function StandingsTable() {
         <div className="flex gap-1 overflow-x-auto whitespace-nowrap">
           <button
             onClick={() => setView('standings')}
-            className={`shrink-0 px-2.5 sm:px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
-              activeView === 'standings' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+            className={`shrink-0 px-3 sm:px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeView === 'standings' ? 'text-blue-600 border-blue-600' : 'text-gray-600 border-transparent hover:text-gray-900'
             }`}
           >
             {/* "Rankings" is what FIRST Global's own results page calls this
                 tab, and the short form is what lets four tabs fit a phone. */}
-            <span className="sm:hidden">Rankings</span>
-            <span className="hidden sm:inline">Team rankings</span>
+            Rankings
           </button>
           <button
             onClick={() => setView('matches')}
-            className={`shrink-0 px-2.5 sm:px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
-              activeView === 'matches' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+            className={`shrink-0 px-3 sm:px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeView === 'matches' ? 'text-blue-600 border-blue-600' : 'text-gray-600 border-transparent hover:text-gray-900'
             }`}
           >
-            Matches
+            Matches Results
           </button>
           {/* The finals get their own tab, and only once they exist — an empty
               tab through the whole qualification day is just a dead end. */}
           {skills.length > 0 && (
             <button
               onClick={() => setView('skills')}
-              className={`shrink-0 px-2.5 sm:px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
-                activeView === 'skills' ? 'text-emerald-600 border-emerald-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+              className={`shrink-0 px-3 sm:px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                activeView === 'skills' ? 'text-blue-600 border-blue-600' : 'text-gray-600 border-transparent hover:text-gray-900'
               }`}
             >
               Skills
@@ -251,8 +266,8 @@ export default function StandingsTable() {
           {playoffMatches.length > 0 && (
             <button
               onClick={() => setView('finals')}
-              className={`shrink-0 px-2.5 sm:px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
-                activeView === 'finals' ? 'text-amber-600 border-amber-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+              className={`shrink-0 px-3 sm:px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                activeView === 'finals' ? 'text-blue-600 border-blue-600' : 'text-gray-600 border-transparent hover:text-gray-900'
               }`}
             >
               Finals
@@ -279,11 +294,11 @@ export default function StandingsTable() {
           <table className="w-full min-w-[320px] border-collapse">
             <thead>
               <tr>
-                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 w-8">#</th>
-                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Team</th>
-                <th className="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-semibold text-gray-500 border-b border-gray-200">Skills total</th>
-                <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-semibold text-gray-500 border-b border-gray-200">Best attempt</th>
-                <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-semibold text-gray-500 border-b border-gray-200">Attempts</th>
+                <th className="px-2 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200 w-8">#</th>
+                <th className="px-2 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200">Team</th>
+                <th className="px-2 sm:px-6 py-3 text-right text-sm font-normal text-gray-600 border-b border-gray-200">Skills total</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-right text-sm font-normal text-gray-600 border-b border-gray-200">Best attempt</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-right text-sm font-normal text-gray-600 border-b border-gray-200">Attempts</th>
               </tr>
             </thead>
             <tbody className="text-base md:text-lg">
@@ -345,12 +360,15 @@ export default function StandingsTable() {
           <table className="w-full min-w-[320px] border-collapse">
             <thead>
               <tr>
-                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 w-8">#</th>
-                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Team</th>
-                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Ranking score</th>
-                <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Played</th>
-                <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Best</th>
-                <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">Suppression</th>
+                <th className="px-2 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200 w-10">Rank</th>
+                <th className="px-2 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200">Team</th>
+                <th className="px-2 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200 whitespace-nowrap">Ranking Score</th>
+                {/* "Highest Points" is what their table calls a team's best
+                    match; "Suppression" is ours, since we have no climb-points
+                    column to fill theirs with. */}
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200 whitespace-nowrap">Highest Points</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200 whitespace-nowrap">Suppression</th>
+                <th className="hidden sm:table-cell px-3 sm:px-6 py-3 text-left text-sm font-normal text-gray-600 border-b border-gray-200 whitespace-nowrap">Played</th>
               </tr>
             </thead>
             <tbody className="text-base md:text-lg">
@@ -363,9 +381,9 @@ export default function StandingsTable() {
                       ? <span className="text-gray-400 italic font-mono text-sm md:text-base lg:text-lg">—</span>
                       : <strong className="font-mono text-sm md:text-base lg:text-lg">{s.rankingScore.toFixed(1)}</strong>}
                   </td>
-                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.played}</td>
                   <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.best}</td>
                   <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.suppressionTotal}</td>
+                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 font-mono text-sm md:text-base lg:text-lg text-gray-500">{s.played}</td>
                 </tr>
               ))}
             </tbody>
@@ -396,8 +414,8 @@ export default function StandingsTable() {
             </div>
           </div>
           {activeView === 'finals'
-            ? <MatchSection title="Finals" rows={visibleMatches} highlight roomy isHit={isHit} />
-            : <MatchSection title="Qualification" rows={visibleMatches} isHit={isHit} />}
+            ? <MatchSection title="Finals Matches" rows={visibleMatches} highlight roomy isHit={isHit} />
+            : <MatchSection title="Qualification Matches" rows={visibleMatches} isHit={isHit} />}
         </div>
       )}
     </div>

@@ -42,56 +42,68 @@ function MatchSection({ title, rows, highlight = false, roomy = false, isHit }: 
           const hit = isHit(m);
           return (
             <div key={m.id} className={`px-3 py-2.5 ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : ''}`}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className={`font-mono font-black text-gray-900 ${roomy ? 'text-xl' : 'text-sm'}`}>{phaseLabel}</span>
+              <div className={`font-mono font-black ${!m.played ? 'text-gray-500' : redWins ? 'text-red-600' : blueWins ? 'text-blue-600' : 'text-emerald-600'} ${roomy ? 'text-xl' : 'text-sm'}`}>
+                {phaseLabel}
+                {m.played && !redWins && !blueWins && (
+                  <span className="ml-2 text-[10px] font-sans uppercase tracking-wider text-emerald-600">tie</span>
+                )}
+              </div>
+              <div className="mt-1.5 flex items-baseline gap-2 rounded bg-red-50 px-2 py-1">
+                <span className={`grow text-red-700 text-sm ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
                 {m.played
-                  ? <span className={`font-mono font-bold text-gray-900 ${roomy ? 'text-xl' : 'text-sm'}`}>{m.redScore} : {m.blueScore}</span>
-                  : <span className="text-gray-300 text-sm">—</span>}
+                  ? <span className={`shrink-0 font-mono text-red-900 ${redWins ? 'font-black' : 'font-medium'}`}>{m.redScore}</span>
+                  : <span className="shrink-0 text-red-300">—</span>}
               </div>
-              <div className="mt-1.5 flex items-baseline gap-2">
-                <span className="shrink-0 w-10 text-[10px] font-bold uppercase tracking-wider text-red-400">Red</span>
-                <span className={`text-red-600 text-sm ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
-              </div>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="shrink-0 w-10 text-[10px] font-bold uppercase tracking-wider text-blue-400">Blue</span>
-                <span className={`text-blue-600 text-sm ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
+              <div className="mt-1 flex items-baseline gap-2 rounded bg-blue-50 px-2 py-1">
+                <span className={`grow text-blue-700 text-sm ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
+                {m.played
+                  ? <span className={`shrink-0 font-mono text-blue-900 ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blueScore}</span>
+                  : <span className="shrink-0 text-blue-300">—</span>}
               </div>
             </div>
           );
         })}
       </div>
 
+      {/* Laid out the way FIRST Global's own results page lays a match out:
+          the label carries the winner's colour, each alliance sits in a block
+          tinted its own colour, and the two scores are cells of their own at
+          the end rather than one "123 : 45" string. Nothing has to be read to
+          see who won — the eye lands on the bold number in the coloured cell. */}
       <div className="hidden sm:block overflow-x-auto">
         <table className={`w-full text-sm ${roomy ? 'min-w-[520px]' : 'min-w-[420px]'}`}>
-          <thead>
-            <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-              <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">Match</th>
-              <th className="text-left px-3 sm:px-4 py-2">Red alliance</th>
-              <th className="text-center px-3 sm:px-4 py-2 w-24 sm:w-32">Score</th>
-              <th className="text-right px-3 sm:px-4 py-2">Blue alliance</th>
-            </tr>
-          </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((m) => {
               const phaseLabel = matchLabel(m.phase === 'playoff' ? 'playoff' : 'qualification', m.number);
               const redWins = m.played && m.redScore !== null && m.blueScore !== null && m.redScore > m.blueScore;
               const blueWins = m.played && m.redScore !== null && m.blueScore !== null && m.blueScore > m.redScore;
+              const tie = m.played && m.redScore !== null && m.redScore === m.blueScore;
               const hit = isHit(m);
+              const labelColour = !m.played ? 'text-gray-500'
+                : redWins ? 'text-red-600' : blueWins ? 'text-blue-600' : 'text-emerald-600';
               return (
-                <tr key={m.id} className={`${roomy ? '[&>td]:py-7 sm:[&>td]:py-12' : ''} ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : 'hover:bg-gray-50'}`}>
-                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap">
-                    <span className={`font-mono font-black text-gray-900 ${roomy ? 'text-xl sm:text-3xl' : 'text-xs sm:text-sm'}`}>{phaseLabel}</span>
+                <tr key={m.id} className={`${roomy ? '[&>td]:py-7 sm:[&>td]:py-12' : ''} ${hit ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : ''}`}>
+                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap w-24 sm:w-32">
+                    <span className={`font-mono font-black ${labelColour} ${roomy ? 'text-xl sm:text-3xl' : 'text-xs sm:text-sm'}`}>
+                      {phaseLabel}
+                    </span>
+                    {tie && <span className="ml-2 text-[10px] uppercase tracking-wider text-emerald-600">tie</span>}
                   </td>
-                  <td className="px-3 sm:px-4 py-2 sm:py-2.5">
-                    <span className={`text-red-600 ${roomy ? 'text-base sm:text-xl' : 'text-xs sm:text-sm'} ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
+                  <td className={`px-3 sm:px-4 py-2 sm:py-2.5 ${hit ? '' : 'bg-red-50/70'}`}>
+                    <span className={`text-red-700 ${roomy ? 'text-base sm:text-xl' : 'text-xs sm:text-sm'} ${redWins ? 'font-black' : 'font-medium'}`}>{m.red.join(' · ')}</span>
                   </td>
-                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-center">
+                  <td className={`px-3 sm:px-4 py-2 sm:py-2.5 ${hit ? '' : 'bg-blue-50/70'}`}>
+                    <span className={`text-blue-700 ${roomy ? 'text-base sm:text-xl' : 'text-xs sm:text-sm'} ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
+                  </td>
+                  <td className={`px-2 sm:px-3 py-2 sm:py-2.5 text-right w-14 sm:w-20 ${hit ? '' : 'bg-red-100/70'}`}>
                     {m.played
-                      ? <span className={`font-mono font-bold text-gray-900 ${roomy ? 'text-xl sm:text-3xl' : 'text-xs sm:text-sm'}`}>{m.redScore} : {m.blueScore}</span>
-                      : <span className="text-gray-300">—</span>}
+                      ? <span className={`font-mono text-red-900 ${redWins ? 'font-black' : 'font-medium'} ${roomy ? 'text-xl sm:text-3xl' : 'text-xs sm:text-sm'}`}>{m.redScore}</span>
+                      : <span className="text-red-300">—</span>}
                   </td>
-                  <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-right">
-                    <span className={`text-blue-600 ${roomy ? 'text-base sm:text-xl' : 'text-xs sm:text-sm'} ${blueWins ? 'font-black' : 'font-medium'}`}>{m.blue.join(' · ')}</span>
+                  <td className={`px-2 sm:px-3 py-2 sm:py-2.5 text-right w-14 sm:w-20 ${hit ? '' : 'bg-blue-100/70'}`}>
+                    {m.played
+                      ? <span className={`font-mono text-blue-900 ${blueWins ? 'font-black' : 'font-medium'} ${roomy ? 'text-xl sm:text-3xl' : 'text-xs sm:text-sm'}`}>{m.blueScore}</span>
+                      : <span className="text-blue-300">—</span>}
                   </td>
                 </tr>
               );

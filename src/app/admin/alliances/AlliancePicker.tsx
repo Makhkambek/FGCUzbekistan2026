@@ -144,6 +144,24 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
     }
   }
 
+  async function clearPlayoff() {
+    if (!window.confirm(
+      'Delete the playoff bracket and every result in it? This is how a '
+      + 'rehearsal is wiped before the real event. A rollback point is kept.')) return;
+    setError('');
+    setAction('playoff');
+    setBusy(true);
+    try {
+      const res = await fetch('/api/admin/playoff', { method: 'DELETE' });
+      if (!res.ok) setError(`Could not clear the playoff (status ${res.status})`);
+      else router.refresh();
+    } catch {
+      setError('Could not clear the playoff — check the connection and try again');
+    } finally {
+      setBusy(false); setAction(null);
+    }
+  }
+
   // Re-creation is the destructive path: only offered while the server would
   // still allow it (no playoff match played yet), and only after the operator
   // confirms exactly what gets deleted. The server re-checks this regardless
@@ -265,6 +283,13 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
                 Rebuilding is unavailable — some playoff matches have been played
               </p>
             )}
+            {/* Clearing is offered whether or not the bracket has been played:
+                it is the way a rehearsal comes off the board before the real
+                event, which rebuilding cannot do once a match is scored. */}
+            <button onClick={clearPlayoff} disabled={busy}
+              className="px-3 py-1.5 rounded-md border border-red-300 text-red-700 text-xs hover:bg-red-50 disabled:opacity-50">
+              Clear the playoff
+            </button>
           </div>
         ) : (
           <button onClick={generatePlayoff} disabled={busy}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionApi } from '@/lib/auth/require-session';
-import { listAttempts, replaceAttempts, attemptScore } from '@/lib/db/skills';
+import { listAttempts, replaceAttempts, attemptScore, deleteAllAttempts } from '@/lib/db/skills';
 import { listTeams } from '@/lib/db/teams';
 import { skillsScheduleSchema } from '@/lib/validation';
 
@@ -44,4 +44,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Could not build the skills order' }, { status: 409 });
   }
+}
+
+/**
+ * Clears the skills phase: the running order and every result in it.
+ *
+ * Unguarded on purpose, unlike rebuilding the order — this is the button for
+ * wiping a rehearsal before the real event, and refusing it because the
+ * rehearsal was scored would defeat it. The admin page asks first.
+ */
+export async function DELETE() {
+  if (!await requireSessionApi()) return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
+
+  const removed = await deleteAllAttempts();
+  return NextResponse.json({ ok: true, removed });
 }

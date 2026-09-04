@@ -153,6 +153,33 @@ export async function resetAttemptResult(id: number): Promise<boolean> {
   return res.affectedRows > 0;
 }
 
+/**
+ * Removes the skills phase outright — the order and every result in it.
+ *
+ * Distinct from clearing one attempt: this is what wipes a rehearsal off the
+ * board before the real event, and there was no way to do it without opening
+ * the database by hand.
+ *
+ * The display pointer goes first, or the foreign key refuses the delete.
+ */
+export async function deleteAllAttempts(): Promise<number> {
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.execute(
+      `UPDATE display_state SET phase = 'standings', match_id = NULL, skills_attempt_id = NULL
+        WHERE skills_attempt_id IS NOT NULL`);
+    const [res] = await conn.execute<ResultSetHeader>('DELETE FROM skills_attempts');
+    await conn.commit();
+    return res.affectedRows;
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
+}
+
 export async function skillsTable(teamIds: number[]): Promise<SkillsStanding[]> {
   const rows = await listAttempts();
   return skillsStandings(teamIds, scored(rows));

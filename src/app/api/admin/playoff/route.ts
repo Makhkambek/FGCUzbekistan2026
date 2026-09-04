@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireSessionApi } from '@/lib/auth/require-session';
 import { getAlliances } from '@/lib/db/alliances';
-import { insertMatches, listMatches } from '@/lib/db/matches';
+import { insertMatches, listMatches, deleteMatchesByPhase } from '@/lib/db/matches';
 import { PLAYOFF_PAIRINGS } from '@/lib/alliances/playoff';
 import { qualificationBlockReason } from '@/lib/alliances/readiness';
 
@@ -66,4 +66,18 @@ export async function POST() {
   }
 
   return NextResponse.json({ ok: true, matches: PLAYOFF_PAIRINGS.length });
+}
+
+/**
+ * Clears the playoff: every match in the bracket, played or not.
+ *
+ * The bracket could be rebuilt but never removed, so a rehearsal left three
+ * finals on the public board with no way to take them off. A snapshot is
+ * taken first, the same as any other reset here (see deleteMatchesByPhase).
+ */
+export async function DELETE() {
+  if (!await requireSessionApi()) return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
+
+  await deleteMatchesByPhase('playoff');
+  return NextResponse.json({ ok: true });
 }

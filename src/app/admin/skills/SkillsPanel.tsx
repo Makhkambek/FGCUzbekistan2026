@@ -54,6 +54,23 @@ export default function SkillsPanel({ teams, attempts }: {
     }
   }
 
+  async function clearPhase() {
+    if (busy) return;
+    if (!window.confirm(
+      'Delete the skills order and every result in it? This is how a rehearsal '
+      + 'is wiped before the real event, and it cannot be undone.')) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/admin/skills', { method: 'DELETE' });
+      if (res.ok) { setSelected([]); router.refresh(); }
+      else setMessage('Could not clear the skills phase');
+    } catch {
+      setMessage('Could not clear the skills phase — check the connection');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function setSide(id: number, side: 'red' | 'blue') {
     if (rowBusy !== null) return;
     setRowBusy(id);
@@ -141,6 +158,12 @@ export default function SkillsPanel({ teams, attempts }: {
             className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
             {busy ? 'Building…' : hasOrder ? 'Rebuild the order' : 'Build the order'}
           </button>
+          {hasOrder && (
+            <button onClick={clearPhase} disabled={busy}
+              className="px-4 py-2 rounded-md border border-red-300 text-red-700 font-semibold hover:bg-red-50 disabled:opacity-50">
+              Clear the skills phase
+            </button>
+          )}
         </div>
         <p className="text-sm text-gray-600">
           {selected.length} team{selected.length === 1 ? '' : 's'} × {attemptsPerTeam} ={' '}

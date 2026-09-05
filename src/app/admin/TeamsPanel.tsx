@@ -218,7 +218,10 @@ export default function TeamsPanel({ teams }: { teams: TeamRow[] }) {
                 <tbody className="divide-y divide-gray-100">
                   {visible.map((t) => (
                     <tr key={t.id} className="hover:bg-gray-50">
-                      <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-gray-400">{t.id}</td>
+                      {/* Position in the list, not the database id: after a
+                          delete-all the ids carried on from where they left
+                          off, and the first team of the event showed as 20. */}
+                      <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-gray-400">{teams.indexOf(t) + 1}</td>
                       <td className="px-3 sm:px-4 py-2 sm:py-2.5">
                         {editId === t.id
                           ? <input value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus

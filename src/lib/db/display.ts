@@ -1,7 +1,7 @@
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { getPool } from './pool';
 import type { DisplayPhase, DisplayState } from '../display';
-import { COUNTDOWN_MS } from '../match-clock';
+import { START_LEAD_MS } from '../match-clock';
 
 interface DisplayStateRow extends RowDataPacket {
   phase: DisplayPhase;
@@ -55,8 +55,10 @@ export async function setDisplayState(
  * Only a match already previewed on the display can be started, and the id
  * must match what is on screen — the referee starting a match while the
  * projector shows a different one would put the hall on the wrong clock. The
- * lead comes from the shared COUNTDOWN_MS so the screens and the database
- * cannot disagree about how long 3-2-1 lasts. Pressing Start twice restarts
+ * lead comes from the shared START_LEAD_MS so the screens and the database
+ * cannot disagree about when the field goes live. It is deliberately longer
+ * than the countdown the hall sees, so the display's next poll cannot eat the
+ * first digit. Pressing Start twice restarts
  * the countdown on purpose: a match replayed after a field fault is started
  * again from the same button.
  *
@@ -67,7 +69,7 @@ export async function startMatchClock(matchId: number): Promise<boolean> {
     `UPDATE display_state
         SET started_at = NOW(3) + INTERVAL ? MICROSECOND
       WHERE id = 1 AND phase = 'live' AND match_id = ?`,
-    [COUNTDOWN_MS * 1000, matchId]);
+    [START_LEAD_MS * 1000, matchId]);
   return res.affectedRows > 0;
 }
 
@@ -77,6 +79,6 @@ export async function startSkillsClock(attemptId: number): Promise<boolean> {
     `UPDATE display_state
         SET started_at = NOW(3) + INTERVAL ? MICROSECOND
       WHERE id = 1 AND phase = 'live' AND skills_attempt_id = ?`,
-    [COUNTDOWN_MS * 1000, attemptId]);
+    [START_LEAD_MS * 1000, attemptId]);
   return res.affectedRows > 0;
 }

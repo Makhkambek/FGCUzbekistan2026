@@ -4,6 +4,15 @@ export const MATCH_DURATION_MS = 150_000;
 export const ENDGAME_MS = 30_000;
 /** 3-2-1 between the referee pressing Start and the match actually running. */
 export const COUNTDOWN_MS = 3_000;
+/**
+ * Насколько вперёд назначается сам матч, когда судья жмёт Start.
+ *
+ * Больше, чем длится показанный счёт, и намеренно: экран узнаёт о старте
+ * только со следующего опроса состояния, и при запасе ровно в три секунды от
+ * счёта залу доставалось меньше двух — «3» проскакивала. Лишние две секунды
+ * съедает опрос, а зал видит полные 3-2-1 при любой задержке сети.
+ */
+export const START_LEAD_MS = 5_000;
 
 export type ClockPeriod = 'pre' | 'countdown' | 'running' | 'endgame' | 'over';
 

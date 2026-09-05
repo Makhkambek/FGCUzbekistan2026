@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSessionApi } from '@/lib/auth/require-session';
-import { getAlliances, saveAlliances, mutateAlliances } from '@/lib/db/alliances';
+import { getAlliances, saveAlliances, mutateAlliances, deleteAllAlliances } from '@/lib/db/alliances';
 import type { AllianceRow } from '@/lib/db/alliances';
 import { listTeams } from '@/lib/db/teams';
 import { listMatches } from '@/lib/db/matches';
@@ -164,6 +164,14 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json(
         { error: e instanceof Error ? e.message : 'Could not clear the pick' }, { status: 500 });
     }
+  }
+
+  // ?all=true: no alliances at all, rather than captains-only. This is the
+  // one that lets the whole event be cleared — alliance rows block a schedule
+  // reset, and resetting them only puts the captains back.
+  if (url.searchParams.get('all') === 'true') {
+    await deleteAllAlliances();
+    return NextResponse.json({ ok: true });
   }
 
   // No params: full reset back to captains-only.

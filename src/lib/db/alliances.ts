@@ -84,3 +84,15 @@ export async function saveAlliances(state: SelectionState): Promise<void> {
     conn.release();
   }
 }
+
+/**
+ * Removes the alliances outright, leaving none at all.
+ *
+ * Distinct from resetting them, which seats the current top three as captains
+ * again — that is the right thing mid-event, and the wrong thing when the
+ * whole event is being cleared to start over: alliance rows block a schedule
+ * reset, and there was no way to get rid of them short of the database.
+ */
+export async function deleteAllAlliances(): Promise<void> {
+  await getPool().execute('DELETE FROM alliances');
+}

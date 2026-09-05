@@ -18,6 +18,9 @@ export default function TeamsPanel({ teams }: { teams: TeamRow[] }) {
   const [editId, setEditId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [editRegion, setEditRegion] = useState('');
+  // What the row held when editing started, so "discard changes?" is only
+  // asked when something was actually changed.
+  const [editOriginal, setEditOriginal] = useState({ name: '', region: '' });
   const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null);
 
   async function add() {
@@ -41,34 +44,61 @@ export default function TeamsPanel({ teams }: { teams: TeamRow[] }) {
     }
   }
 
+  const edited = editName !== editOriginal.name || editRegion !== editOriginal.region;
+
   function startEdit(t: TeamRow) {
     // Switching rows mid-edit used to drop whatever had been typed without a
-    // word.
-    if (editId !== null && editId !== t.id
+    // word. Untouched rows are switched away from silently — a prompt on every
+    // stray click is a prompt that gets clicked through without reading.
+    if (editId !== null && editId !== t.id && edited
       && !window.confirm('Discard the unsaved changes to the other team?')) return;
     setEditId(t.id);
     setEditName(t.name);
     setEditRegion(t.region ?? '');
+    setEditOriginal({ name: t.name, region: t.region ?? '' });
+    setRowError(null);
+  }
+
+  function cancelEdit() {
+    setEditId(null);
     setRowError(null);
   }
 
   async function saveEdit(id: number) {
-    if (!editName.trim()) return;
+    // Save on an emptied name used to do nothing at all, with no hint that the
+    // name was the reason.
+    if (!editName.trim()) {
+      setRowError({ id, message: 'A team needs a name' });
+      return;
+    }
+    // Nothing typed, nothing to send — but the row still has to leave edit
+    // mode, or Save looks broken on an untouched row.
+    if (!edited) {
+      cancelEdit();
+      return;
+    }
     // Without a busy flag the row's Save and Delete stayed live during the
     // request, so an impatient second click sent the same change twice.
+    setRowError(null);
     setRowBusy(id);
     try {
       const res = await fetch(`/api/admin/teams?id=${id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editName, region: editRegion || undefined }),
+        body: JSON.stringify({
+          name: editName.trim(), region: editRegion.trim() || undefined,
+        }),
       });
       if (res.ok) {
-        setEditId(null);
+        // Cleared with the row: a rename that failed once and then succeeded
+        // used to leave its red line sitting under the corrected name.
+        cancelEdit();
         router.refresh();
       } else {
         const data = await res.json().catch(() => ({}));
-        setRowError({ id, message: data.error ?? 'Something went wrong' });
+        setRowError({ id, message: data.error ?? `Could not save (status ${res.status})` });
       }
+    } catch {
+      setRowError({ id, message: 'Could not save — check the connection and try again' });
     } finally {
       setRowBusy(null);
     }
@@ -149,11 +179,11 @@ export default function TeamsPanel({ teams }: { teams: TeamRow[] }) {
         )}
         <div className="flex flex-wrap gap-2">
           <input className="flex-1 min-w-[10rem] px-3 py-2 rounded-md bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-            placeholder="Name" value={name}
+            placeholder="Name" value={name} maxLength={120}
             onKeyDown={(e) => e.key === 'Enter' && add()}
             onChange={(e) => setName(e.target.value)} />
           <input className="w-40 px-3 py-2 rounded-md bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-            placeholder="Region" value={region}
+            placeholder="Region" value={region} maxLength={120}
             onKeyDown={(e) => e.key === 'Enter' && add()}
             onChange={(e) => setRegion(e.target.value)} />
           <button onClick={add} disabled={adding || !name.trim()}
@@ -192,12 +222,22 @@ export default function TeamsPanel({ teams }: { teams: TeamRow[] }) {
                       <td className="px-3 sm:px-4 py-2 sm:py-2.5">
                         {editId === t.id
                           ? <input value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus
+                              maxLength={120}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEdit(t.id);
+                                if (e.key === 'Escape') cancelEdit();
+                              }}
                               className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-100" />
                           : <span className="text-gray-900">{t.name}</span>}
                       </td>
                       <td className="px-3 sm:px-4 py-2 sm:py-2.5">
                         {editId === t.id
                           ? <input value={editRegion} onChange={(e) => setEditRegion(e.target.value)} placeholder="—"
+                              maxLength={120}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEdit(t.id);
+                                if (e.key === 'Escape') cancelEdit();
+                              }}
                               className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-100" />
                           : <span className="text-gray-500">{t.region || '—'}</span>}
                       </td>
@@ -208,7 +248,7 @@ export default function TeamsPanel({ teams }: { teams: TeamRow[] }) {
                               className="text-xs font-bold text-amber-600 hover:text-amber-700 disabled:opacity-50">
                               {rowBusy === t.id ? 'Saving…' : 'Save'}
                             </button>
-                            <button onClick={() => setEditId(null)} className="text-xs text-gray-400 hover:text-gray-700 ml-3">Cancel</button>
+                            <button onClick={cancelEdit} className="text-xs text-gray-400 hover:text-gray-700 ml-3">Cancel</button>
                           </>
                         ) : (
                           <>

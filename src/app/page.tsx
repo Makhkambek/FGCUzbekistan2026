@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import StandingsTable from './StandingsTable';
+import TelegramQr from './TelegramQr';
 import { EVENT_BACKGROUND, gridTexture } from '@/lib/brand';
 
 /**
@@ -23,14 +24,20 @@ export default function HomePage() {
             5–6 September 2026 in Tashkent
           </p>
         </div>
-        {/* White on the gradient rather than blue: a blue pill on a pink-to-blue
-            ground disappears into whichever end it happens to sit over. */}
-        <Link
-          href="/display"
-          className="shrink-0 rounded-full bg-white/95 hover:bg-white text-gray-900 text-xs sm:text-base font-semibold px-4 sm:px-6 py-2 sm:py-2.5 shadow-sm transition-colors"
-        >
-          Field display
-        </Link>
+        {/* Stacked rather than side by side: on a phone the heading, the
+            button and the QR do not fit on one line, and the heading is what
+            gets squeezed. */}
+        <div className="shrink-0 flex flex-col items-end gap-2 sm:gap-3">
+          {/* White on the gradient rather than blue: a blue pill on a pink-to-blue
+              ground disappears into whichever end it happens to sit over. */}
+          <Link
+            href="/display"
+            className="rounded-full bg-white/95 hover:bg-white text-gray-900 text-xs sm:text-base font-semibold px-4 sm:px-6 py-2 sm:py-2.5 shadow-sm transition-colors"
+          >
+            Field display
+          </Link>
+          <TelegramQr size={72} />
+        </div>
       </header>
       <main className="relative px-3 sm:px-8 pb-8">
         <StandingsTable />

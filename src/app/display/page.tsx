@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useSyncExternalStore } from 'react';
 import StandingsTable from '../StandingsTable';
 import { pickNextMatch } from '@/lib/next-match';
 import FullscreenButton from './FullscreenButton';
+import TelegramQr from '../TelegramQr';
 import { EVENT_BACKGROUND, gridTexture } from '@/lib/brand';
 import { matchClock, type ClockPeriod } from '@/lib/match-clock';
 import { matchLabel } from '@/lib/match-label';
@@ -329,6 +330,9 @@ export default function DisplayPage() {
               5–6 September 2026 in Tashkent
             </div>
           </div>
+          {/* This screen is up between every match — the longest look the hall
+              gets at the QR all day. */}
+          <TelegramQr size={104} />
         </header>
         {/* The same board the hall reads on their phones, but this one is
             seen from 15+ metres — scale it up for the projector. */}
@@ -522,6 +526,11 @@ function MatchScreen({ data, nextMatchLabel, clock, matchClock, clockVariant }: 
             </div>
           </div>
           {isLive && !showBigClock && !showCenterClock && <MatchCountdown clock={matchClock} />}
+          {/* Top right, beside the event name: the one corner of the
+              broadcast canvas that is free on every screen. Scanned off the
+              projector between matches, so it is drawn on its own white card
+              rather than tinted into the gradient. */}
+          <TelegramQr size={84} />
         </div>
       </div>
 
@@ -745,6 +754,11 @@ function SkillsScreen({ data, nextMatchLabel, clock, matchClock }: {
             </div>
           </div>
           {!isResult && <MatchCountdown clock={matchClock} />}
+          {/* Top right, beside the event name: the one corner of the
+              broadcast canvas that is free on every screen. Scanned off the
+              projector between matches, so it is drawn on its own white card
+              rather than tinted into the gradient. */}
+          <TelegramQr size={84} />
         </div>
       </div>
 
@@ -948,6 +962,12 @@ function PlayoffScreen({ standings, nextMatchLabel, clock }: {
         </div>
         <div style={{ fontFamily: F_SANS, fontSize: 24, color: 'oklch(1 0 0 / 0.85)' }}>
           Playoffs · 5–6 September 2026 in Tashkent
+        </div>
+
+        {/* Opposite the LIVE badge, in the corner the centred heading leaves
+            empty. */}
+        <div style={{ position: 'absolute', top: 0, left: 0 }}>
+          <TelegramQr size={84} />
         </div>
 
         <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', alignItems: 'center', gap: 24 }}>

@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import TelegramQr from '../TelegramQr';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-100 text-gray-900">
+    <main className="min-h-screen flex flex-col items-center justify-center gap-5 bg-gray-100 text-gray-900">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 p-8 bg-white rounded-lg shadow-sm border border-gray-200">
         <h1 className="text-xl font-semibold">FGC Uzbekistan · sign in</h1>
         <input className="w-full px-3 py-2 rounded-md bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
@@ -40,6 +41,7 @@ export default function LoginPage() {
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
+      <TelegramQr size={84} />
     </main>
   );
 }

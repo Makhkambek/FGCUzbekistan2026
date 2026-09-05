@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionApi } from '@/lib/auth/require-session';
 import { listTeams, createTeam, updateTeam, deleteTeam, deleteAllTeams } from '@/lib/db/teams';
-import { teamAppearsInMatches, listMatches } from '@/lib/db/matches';
+import { listMatches } from '@/lib/db/matches';
+import type { MatchRow } from '@/lib/db/matches';
+import { getAlliances } from '@/lib/db/alliances';
+import { listAttempts } from '@/lib/db/skills';
+import { teamDeletionBlockReason } from '@/lib/teams/guards';
 import { teamSchema } from '@/lib/validation';
 import { findDuplicateName } from '@/lib/db/team-names';
 
@@ -52,34 +56,51 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+/** Every per-alliance team slot of a match row, third robots included. */
+function matchTeamIds(m: MatchRow): number[] {
+  return [m.red1_id, m.red2_id, m.red3_id, m.blue1_id, m.blue2_id, m.blue3_id]
+    .filter((id): id is number => typeof id === 'number');
+}
+
+/**
+ * What still references the team(s) about to be deleted.
+ *
+ * `teamId` undefined means "every team", the delete-all case: then any row at
+ * all in one of these tables is a blocker. Alliances and skills attempts are
+ * read here too — they hold real foreign keys into `teams`, so skipping them
+ * turned the delete into a database-level failure instead of an explanation.
+ */
+async function deletionState(teamId?: number) {
+  const [matches, alliances, attempts] = await Promise.all([
+    listMatches(), getAlliances(), listAttempts(),
+  ]);
+  const inMatch = (m: MatchRow) => teamId === undefined || matchTeamIds(m).includes(teamId);
+  return {
+    inQualificationMatches: matches.some((m) => m.phase === 'qualification' && inMatch(m)),
+    inPlayoffMatches: matches.some((m) => m.phase === 'playoff' && inMatch(m)),
+    inAlliances: alliances.some((a) => teamId === undefined
+      || a.captain_team_id === teamId || a.pick1_team_id === teamId || a.pick2_team_id === teamId),
+    hasSkillsAttempts: attempts.some((a) => teamId === undefined || a.team_id === teamId),
+  };
+}
+
 export async function DELETE(req: NextRequest) {
   if (!await requireSessionApi()) return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
   const url = new URL(req.url);
 
   if (url.searchParams.get('all') === 'true') {
-    // Matches has no FK to teams — wiping every team while any match still
-    // references team ids would orphan the whole schedule at once, the same
-    // reason the single-team guard below exists.
-    if ((await listMatches()).length > 0) {
-      return NextResponse.json(
-        { error: 'Teams cannot be deleted — matches already reference them. Reset the schedule first.' },
-        { status: 409 });
-    }
-    await deleteAllTeams();
-    return NextResponse.json({ ok: true });
+    const blocked = teamDeletionBlockReason(await deletionState(), 'all');
+    if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
+    const deleted = await deleteAllTeams();
+    return NextResponse.json({ ok: true, deleted });
   }
 
   const id = Number(url.searchParams.get('id'));
   if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  // Matches has no FK to teams — deleting a team that already appears in a
-  // match would orphan those rows and break the scoreboard display.
-  if (await teamAppearsInMatches(id)) {
-    return NextResponse.json(
-      { error: 'This team cannot be deleted — it is already part of the match schedule' },
-      { status: 409 });
-  }
+  const blocked = teamDeletionBlockReason(await deletionState(id), 'single');
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
   await deleteTeam(id);
   return NextResponse.json({ ok: true });
 }

@@ -65,6 +65,6 @@ export async function DELETE() {
   });
   if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
 
-  await deleteMatchesByPhase('qualification');
-  return NextResponse.json({ ok: true });
+  const deleted = await deleteMatchesByPhase('qualification');
+  return NextResponse.json({ ok: true, deleted });
 }

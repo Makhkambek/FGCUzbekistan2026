@@ -133,7 +133,8 @@ export async function insertMatches(rows: {
   }
 }
 
-export async function deleteMatchesByPhase(phase: 'qualification' | 'playoff'): Promise<void> {
+/** Returns how many matches were removed, so the UI can say what happened. */
+export async function deleteMatchesByPhase(phase: 'qualification' | 'playoff'): Promise<number> {
   const conn = await getPool().getConnection();
   try {
     await conn.beginTransaction();
@@ -141,8 +142,10 @@ export async function deleteMatchesByPhase(phase: 'qualification' | 'playoff'): 
     // that throws away a day of scoring, and until now it was final.
     await takeSnapshot(conn, phase, 'reset');
     await clearDisplayPointerForPhase(conn, phase);
-    await conn.execute('DELETE FROM matches WHERE phase = ?', [phase]);
+    const [result] = await conn.execute<ResultSetHeader>(
+      'DELETE FROM matches WHERE phase = ?', [phase]);
     await conn.commit();
+    return result.affectedRows;
   } catch (e) {
     await conn.rollback();
     throw e;

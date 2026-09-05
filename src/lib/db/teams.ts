@@ -24,6 +24,8 @@ export async function deleteTeam(id: number): Promise<void> {
   await getPool().execute('DELETE FROM teams WHERE id = ?', [id]);
 }
 
-export async function deleteAllTeams(): Promise<void> {
-  await getPool().execute('DELETE FROM teams');
+/** Returns how many teams were removed, so the UI can say what happened. */
+export async function deleteAllTeams(): Promise<number> {
+  const [result] = await getPool().execute<ResultSetHeader>('DELETE FROM teams');
+  return result.affectedRows;
 }

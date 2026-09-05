@@ -21,7 +21,10 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
     ? scheduleShape(teamCount, matchesPerTeam) : null;
   const evenAlternative = enoughTeams && matchesPerTeam !== null
     ? evenMatchesPerTeam(teamCount, matchesPerTeam) : null;
-  const [message, setMessage] = useState('');
+  // Success and failure used to land in the same grey line at the foot of the
+  // panel, so "Reset" gave no sign of which one had happened. The kind is
+  // carried with the text and decides how it is drawn.
+  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [resetting, setResetting] = useState(false);
   // Every destructive action here now leaves a rollback point behind. The page
@@ -51,20 +54,20 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
       : 'Put the qualification schedule back exactly as it was before the last reset, '
         + 'including every score that had been entered?';
     if (!window.confirm(question)) return;
-    setMessage('');
+    setMessage(null);
     setRestoring(true);
     try {
       const res = await fetch(`/api/admin/schedule/restore${force ? '?force=1' : ''}`, { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setMessage(`Restored ${data.matches} matches exactly as they were`);
+        setMessage({ kind: 'ok', text: `Restored ${data.matches} matches exactly as they were` });
         loadSnapshot();
         router.refresh();
       } else {
-        setMessage(data.error ?? `Could not restore (status ${res.status})`);
+        setMessage({ kind: 'error', text: data.error ?? `Could not restore (status ${res.status})` });
       }
     } catch {
-      setMessage('Could not restore — check the connection and try again');
+      setMessage({ kind: 'error', text: 'Could not restore — check the connection and try again' });
     } finally {
       setRestoring(false);
     }
@@ -73,7 +76,7 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
   async function generate() {
     // The box can be empty mid-edit; there is nothing to generate from then.
     if (matchesPerTeam === null) {
-      setMessage('Enter how many matches each team plays');
+      setMessage({ kind: 'error', text: 'Enter how many matches each team plays' });
       return;
     }
     // Reset asks twice; Generate asked nothing, yet it deletes and replaces
@@ -82,7 +85,7 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
     if (hasSchedule && !window.confirm(
       'A schedule already exists. Generating again deletes it and creates a different one — '
       + 'any printed match sheets become wrong. Continue?')) return;
-    setMessage('');
+    setMessage(null);
     setBusy(true);
     try {
       const res = await fetch('/api/admin/schedule', {
@@ -90,8 +93,12 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
         body: JSON.stringify({ matchesPerTeam, seed: Math.floor(Math.random() * 1_000_000) }),
       });
       const data = await res.json().catch(() => ({}));
-      setMessage(res.ok ? `Matches created: ${data.matches}` : data.error ?? 'Something went wrong');
+      setMessage(res.ok
+        ? { kind: 'ok', text: `Matches created: ${data.matches}` }
+        : { kind: 'error', text: data.error ?? `Could not generate (status ${res.status})` });
       router.refresh();
+    } catch {
+      setMessage({ kind: 'error', text: 'Could not generate — check the connection and try again' });
     } finally {
       setBusy(false);
     }
@@ -102,13 +109,21 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
       'Delete the entire qualification schedule? All qualification matches — played or not — will be removed. This cannot be undone.',
     )) return;
 
-    setMessage('');
+    setMessage(null);
     setResetting(true);
     try {
       const res = await fetch('/api/admin/schedule', { method: 'DELETE' });
       const data = await res.json().catch(() => ({}));
-      setMessage(res.ok ? 'Qualification schedule cleared' : data.error ?? 'Something went wrong');
+      // The count is what tells the operator the reset actually reached the
+      // database — "cleared" alone reads the same whether 40 matches went or
+      // the request never got past the guard.
+      setMessage(res.ok
+        ? { kind: 'ok', text: `Qualification schedule cleared — ${data.deleted ?? 0} match${data.deleted === 1 ? '' : 'es'} deleted` }
+        : { kind: 'error', text: data.error ?? `Could not reset the schedule (status ${res.status})` });
+      loadSnapshot();
       router.refresh();
+    } catch {
+      setMessage({ kind: 'error', text: 'Could not reset the schedule — check the connection and try again' });
     } finally {
       setResetting(false);
     }
@@ -136,6 +151,14 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
           {resetting ? 'Resetting…' : 'Reset'}
         </button>
       </div>
+      {message && (
+        <p role={message.kind === 'error' ? 'alert' : 'status'}
+          className={`text-sm rounded-md border px-3 py-2 ${message.kind === 'error'
+            ? 'text-red-800 bg-red-50 border-red-200'
+            : 'text-green-800 bg-green-50 border-green-200'}`}>
+          {message.text}
+        </p>
+      )}
       {shape && !hasSchedule && (
         shape.withExtra === 0
           ? (
@@ -186,7 +209,6 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
         </div>
       )}
 
-      {message && <p className="text-sm text-gray-700">{message}</p>}
       <p className="text-xs text-gray-500">
         The schedule can only be regenerated while no match has been played. Reset deletes all
         qualification matches so a new schedule can be generated — blocked once alliances or

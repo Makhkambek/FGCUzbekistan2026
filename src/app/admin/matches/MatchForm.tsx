@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { matchLabel } from '@/lib/match-label';
-import { computeMatchScores } from '@/lib/scoring/match';
+import { computeMatchScores, maxPartnerClimbs } from '@/lib/scoring/match';
+import { TEAMS_PER_ALLIANCE } from '@/lib/schedule/generate';
 import type { ClimbPosition, CardType } from '@/lib/scoring/types';
 import type { MatchRow } from '@/lib/db/matches';
 
@@ -16,9 +17,6 @@ const CARDS: CardType[] = ['none', 'yellow', 'white', 'red'];
 // The limits below mirror what matchResultSchema enforces on the server.
 // Capping the inputs here keeps a field from accepting what the API would reject.
 const MAX_WILDFIRE = 500; // suppression, extinguisher
-/** Three robots can lift two partners between them; two can lift one. */
-const MAX_PARTNER_CLIMB = 2;
-const MAX_PARTNER_CLIMB_PLAYOFF = 1;
 const MAX_FOULS = 20;
 
 // text-base = 16px: anything smaller makes iOS zoom the page on focus,
@@ -45,7 +43,11 @@ export default function MatchForm({ match, teamNames, nextMatch }: {
     [match.climb_red1, match.climb_red2, match.climb_red3] as Trio<ClimbPosition>);
   const [climbBlue, setClimbBlue] = useState<Trio<ClimbPosition>>(
     [match.climb_blue1, match.climb_blue2, match.climb_blue3] as Trio<ClimbPosition>);
-  const maxPartnerClimb = match.phase === 'playoff' ? MAX_PARTNER_CLIMB_PLAYOFF : MAX_PARTNER_CLIMB;
+  // An alliance is two robots in both phases now, and two robots lift one
+  // partner between them. Fixed rather than derived from the row on purpose:
+  // matchResultSchema refuses a 2 outright, so a form that offered one would
+  // hand the referee a 400 they could not act on.
+  const maxPartnerClimb = maxPartnerClimbs(TEAMS_PER_ALLIANCE);
   const [partnerRed, setPartnerRed] = useState(match.partner_climb_red);
   const [partnerBlue, setPartnerBlue] = useState(match.partner_climb_blue);
   const [minorRed, setMinorRed] = useState(match.minor_fouls_red);
@@ -100,7 +102,7 @@ export default function MatchForm({ match, teamNames, nextMatch }: {
     if (saving || resetting) return;
 
     // Saving an unplayed match is the irreversible transition — it records a
-    // real result for six teams and, from then on, blocks schedule/playoff
+    // real result for every team in it and, from then on, blocks schedule/playoff
     // regeneration. A misclick on an already-played match is just a
     // correction, so re-saves stay frictionless and skip this prompt.
     if (!match.played && !confirmed) {
@@ -251,9 +253,9 @@ export default function MatchForm({ match, teamNames, nextMatch }: {
   );
 
   const side = (
-    // A playoff alliance is two robots, so the third slot arrives empty and
-    // is left out of the form — there is nothing to score for a robot that is
-    // not on the field, and an empty row invites a climb to be entered for it.
+    // An alliance is two robots, so the third slot arrives empty and is left
+    // out of the form — there is nothing to score for a robot that is not on
+    // the field, and an empty row invites a climb to be entered for it.
     color: 'red' | 'blue', teams: (number | null)[],
     climbs: Trio<ClimbPosition>, setClimbs: (t: Trio<ClimbPosition>) => void,
     cards: Trio<CardType>, setCards: (t: Trio<CardType>) => void,
@@ -347,9 +349,8 @@ export default function MatchForm({ match, teamNames, nextMatch }: {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
         <label className="flex justify-between items-center">Red suppression {num(suppressionRed, setSuppressionRed)}</label>
         <label className="flex justify-between items-center">Blue suppression {num(suppressionBlue, setSuppressionBlue)}</label>
-        {/* Two robots in a playoff alliance can only lift one partner between
-            them; three can lift two. The cap follows the phase so a final
-            cannot be given a climb that did not happen. */}
+        {/* Two robots can only lift one partner between them, so the cap is
+            one — a match cannot be given a climb that did not happen. */}
         <label className="flex justify-between items-center">Red partner climbs {num(partnerRed, setPartnerRed, maxPartnerClimb)}</label>
         <label className="flex justify-between items-center">Blue partner climbs {num(partnerBlue, setPartnerBlue, maxPartnerClimb)}</label>
         <label className="flex justify-between items-center">Red minor fouls {num(minorRed, setMinorRed, MAX_FOULS)}</label>
@@ -402,7 +403,7 @@ export default function MatchForm({ match, teamNames, nextMatch }: {
         <div className="border-t border-gray-100 pt-4 flex flex-col items-center gap-3 text-center">
           <p className="text-sm text-gray-800 max-w-md">
             <strong>{matchLabel(match.phase, match.match_number)}</strong> has not been played yet.
-            Saving records the result for all six teams and locks the schedule.
+            Saving records the result for every team in it and locks the schedule.
           </p>
           <div className="flex items-center gap-3">
             <button onClick={() => setConfirming(false)}

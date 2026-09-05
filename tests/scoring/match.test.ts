@@ -26,12 +26,14 @@ describe('climbMultiplierHundredths', () => {
 });
 
 describe('coopertitionBonus', () => {
+  // С 5 сентября 2026 на поле четыре робота, а не шесть, и шкала съехала
+  // на четыре: все четверо в zone3 — максимум.
   const z = (n: number): ClimbPosition[] =>
-    Array.from({ length: 6 }, (_, i) => (i < n ? 'zone3' : 'none'));
-  it('меньше четырёх — ноль', () => expect(coopertitionBonus(z(3))).toBe(0));
-  it('четыре — 10', () => expect(coopertitionBonus(z(4))).toBe(10));
-  it('пять — 25', () => expect(coopertitionBonus(z(5))).toBe(25));
-  it('шесть — 40', () => expect(coopertitionBonus(z(6))).toBe(40));
+    Array.from({ length: 4 }, (_, i) => (i < n ? 'zone3' : 'none'));
+  it('меньше двух — ноль', () => expect(coopertitionBonus(z(1))).toBe(0));
+  it('два — 10', () => expect(coopertitionBonus(z(2))).toBe(10));
+  it('три — 25', () => expect(coopertitionBonus(z(3))).toBe(25));
+  it('четыре — 40', () => expect(coopertitionBonus(z(4))).toBe(40));
 });
 
 describe('alliancePreScore', () => {
@@ -58,12 +60,13 @@ describe('computeMatchScores', () => {
   it('даёт обоим альянсам одинаковые extinguisher и coopertition', () => {
     const r = computeMatchScores({
       extinguisher: 30,
-      red: alliance({ suppression: 0, climbs: ['zone3', 'zone3', 'zone3'] }),
+      // Третий слот альянса пуст — на поле по два робота с каждой стороны.
+      red: alliance({ suppression: 0, climbs: ['zone3', 'zone3', 'none'] }),
       blue: alliance({ suppression: 0, climbs: ['zone3', 'none', 'none'] }),
     });
-    expect(r.coopertition).toBe(10); // четыре робота в zone3 из шести
-    expect(r.red).toBe(40);  // 0 + 30 + 10
-    expect(r.blue).toBe(40); // 0 + 30 + 10
+    expect(r.coopertition).toBe(25); // три робота в zone3 из четырёх
+    expect(r.red).toBe(55);  // 0 + 30 + 25
+    expect(r.blue).toBe(55); // 0 + 30 + 25
   });
 
   it('начисляет штраф сопернику, а не вычитает у нарушителя', () => {

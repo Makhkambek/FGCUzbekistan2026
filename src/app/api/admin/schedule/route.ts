@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionApi } from '@/lib/auth/require-session';
 import { listTeams } from '@/lib/db/teams';
-import { insertMatches, listMatches, deleteMatchesByPhase } from '@/lib/db/matches';
+import {
+  insertMatches, listMatches, deleteMatchesByPhase, ensureThirdRobotSlotsNullable,
+} from '@/lib/db/matches';
 import { getAlliances } from '@/lib/db/alliances';
-import { generateSchedule } from '@/lib/schedule/generate';
+import { generateSchedule, TEAMS_PER_MATCH } from '@/lib/schedule/generate';
 import { scheduleParamsSchema } from '@/lib/validation';
 import { scheduleResetBlockReason } from '@/lib/schedule/guards';
 
@@ -20,9 +22,16 @@ export async function POST(req: NextRequest) {
   }
 
   const teams = await listTeams();
-  if (teams.length < 6) {
-    return NextResponse.json({ error: 'At least 6 teams are required' }, { status: 400 });
+  if (teams.length < TEAMS_PER_MATCH) {
+    return NextResponse.json(
+      { error: `At least ${TEAMS_PER_MATCH} teams are required` }, { status: 400 });
   }
+
+  // A qualification alliance is two robots, so the third slot of every row is
+  // empty — and on a server whose schema predates that, the column is still
+  // NOT NULL and the insert below would fail. Same migration the bracket
+  // applies, and it does nothing when the column is already nullable.
+  await ensureThirdRobotSlotsNullable();
 
   const schedule = generateSchedule(
     teams.map((t) => t.id), parsed.data.matchesPerTeam, parsed.data.seed);
@@ -31,9 +40,8 @@ export async function POST(req: NextRequest) {
   // insert can't leave the qualification phase with no matches at all.
   await insertMatches(schedule.map((m) => ({
     matchNumber: m.matchNumber, phase: 'qualification' as const,
-    // generateSchedule always produces exactly 3 ids per side; insertMatches
-    // re-checks this at runtime, so the assertion here is safe.
-    red: m.red as [number, number, number], blue: m.blue as [number, number, number],
+    // Two ids per side; insertMatches stores the empty third slot as NULL.
+    red: m.red, blue: m.blue,
   })), { clearPhase: 'qualification' });
 
   return NextResponse.json({ ok: true, matches: schedule.length });

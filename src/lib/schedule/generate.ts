@@ -1,3 +1,10 @@
+/**
+ * From 5 September 2026 an alliance is two robots in qualification as well as
+ * in the finals, so four teams take the field per match rather than six.
+ */
+export const TEAMS_PER_ALLIANCE = 2;
+export const TEAMS_PER_MATCH = TEAMS_PER_ALLIANCE * 2;
+
 export interface ScheduledMatch {
   matchNumber: number;
   red: number[];
@@ -18,7 +25,7 @@ export function mulberry32(seed: number): () => number {
 /**
  * What the operator actually gets for a team count and a matches-per-team.
  *
- * Six teams play each match, so unless `teams × matchesPerTeam` divides by 6
+ * Four teams play each match, so unless `teams × matchesPerTeam` divides by 4
  * the schedule cannot give everyone the same number of matches: `withExtra`
  * teams play one more than the rest. The ranking averages and drops each
  * team's worst match, so an extra match does not inflate the ranking score
@@ -26,8 +33,8 @@ export function mulberry32(seed: number): () => number {
  * one more match in the suppression total, so the operator should know.
  */
 export function scheduleShape(teams: number, matchesPerTeam: number) {
-  const totalMatches = Math.ceil((teams * matchesPerTeam) / 6);
-  const slots = totalMatches * 6;
+  const totalMatches = Math.ceil((teams * matchesPerTeam) / TEAMS_PER_MATCH);
+  const slots = totalMatches * TEAMS_PER_MATCH;
   return {
     totalMatches,
     base: Math.floor(slots / teams),
@@ -40,12 +47,12 @@ export function scheduleShape(teams: number, matchesPerTeam: number) {
  * null when the requested number already does.
  */
 export function evenMatchesPerTeam(teams: number, matchesPerTeam: number): number | null {
-  if ((teams * matchesPerTeam) % 6 === 0) return null;
+  if ((teams * matchesPerTeam) % TEAMS_PER_MATCH === 0) return null;
   for (let delta = 1; delta <= 20; delta++) {
-    if (matchesPerTeam - delta >= 1 && (teams * (matchesPerTeam - delta)) % 6 === 0) {
+    if (matchesPerTeam - delta >= 1 && (teams * (matchesPerTeam - delta)) % TEAMS_PER_MATCH === 0) {
       return matchesPerTeam - delta;
     }
-    if (matchesPerTeam + delta <= 20 && (teams * (matchesPerTeam + delta)) % 6 === 0) {
+    if (matchesPerTeam + delta <= 20 && (teams * (matchesPerTeam + delta)) % TEAMS_PER_MATCH === 0) {
       return matchesPerTeam + delta;
     }
   }
@@ -55,17 +62,19 @@ export function evenMatchesPerTeam(teams: number, matchesPerTeam: number): numbe
 export function generateSchedule(
   teamIds: number[], matchesPerTeam: number, seed: number,
 ): ScheduledMatch[] {
-  if (teamIds.length < 6) throw new Error('A schedule needs at least 6 teams');
+  if (teamIds.length < TEAMS_PER_MATCH) {
+    throw new Error(`A schedule needs at least ${TEAMS_PER_MATCH} teams`);
+  }
   if (matchesPerTeam < 1) throw new Error('Matches per team must be at least one');
 
   const rng = mulberry32(seed);
   // Rounding up, not down: with floor, any team count whose product with
   // matchesPerTeam is not divisible by 6 left teams short of the number of
-  // matches the operator asked for — at 9 teams and 1 match each, three teams
+  // matches the operator asked for — at 9 teams and 1 match each, five teams
   // played nothing at all and silently ranked last. Erring upwards gives some
   // teams one extra match instead, which the ranking already handles (it
   // averages and drops the lowest).
-  const totalMatches = Math.ceil((teamIds.length * matchesPerTeam) / 6);
+  const totalMatches = Math.ceil((teamIds.length * matchesPerTeam) / TEAMS_PER_MATCH);
   const appearances = new Map(teamIds.map((id) => [id, 0]));
   const lastPlayed = new Map(teamIds.map((id) => [id, -Infinity]));
   const schedule: ScheduledMatch[] = [];
@@ -78,10 +87,10 @@ export function generateSchedule(
         (appearances.get(a.id)! - appearances.get(b.id)!)
         || (lastPlayed.get(a.id)! - lastPlayed.get(b.id)!)
         || (a.r - b.r))
-      .slice(0, 6)
+      .slice(0, TEAMS_PER_MATCH)
       .map((x) => x.id);
 
-    // Shuffle the six at random and split them in half.
+    // Shuffle the four at random and split them in half.
     for (let j = picked.length - 1; j > 0; j--) {
       const k = Math.floor(rng() * (j + 1));
       [picked[j], picked[k]] = [picked[k], picked[j]];
@@ -92,8 +101,27 @@ export function generateSchedule(
       lastPlayed.set(id, i);
     }
 
-    schedule.push({ matchNumber: i + 1, red: picked.slice(0, 3), blue: picked.slice(3, 6) });
+    schedule.push({
+      matchNumber: i + 1,
+      red: picked.slice(0, TEAMS_PER_ALLIANCE),
+      blue: picked.slice(TEAMS_PER_ALLIANCE, TEAMS_PER_MATCH),
+    });
   }
 
   return schedule;
+}
+
+/**
+ * What the operator typed into "matches per team", or null while the field is
+ * empty or not yet a number.
+ *
+ * Null matters: the field used to substitute 1 for an empty value, so the box
+ * could never be cleared — deleting the 1 put it straight back and the next
+ * digit typed landed beside it. Asking for 9 gave 19.
+ */
+export function parseMatchesPerTeam(raw: string): number | null {
+  if (raw.trim() === '') return null;
+  const n = Math.trunc(Number(raw));
+  if (!Number.isFinite(n)) return null;
+  return Math.min(20, Math.max(1, n));
 }

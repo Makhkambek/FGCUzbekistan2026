@@ -14,12 +14,31 @@ export function climbMultiplierHundredths(climbs: ClimbPosition[]): number {
   return 100 + climbs.reduce((acc, c) => acc + CLIMB_INCREMENT_HUNDREDTHS[c], 0);
 }
 
+/**
+ * The shared bonus for robots that climbed to zone 3, counted across both
+ * alliances.
+ *
+ * The scale moved down with the field on 5 September 2026: an alliance is two
+ * robots in every phase now, so four robots take the field and all four in
+ * zone 3 is the maximum. On the old six-robot field the steps were 6/5/4 —
+ * left as they were, the top two would have been unreachable and the bonus
+ * would have been capped at 10 for the whole event.
+ */
 export function coopertitionBonus(allClimbs: ClimbPosition[]): number {
   const zone3 = allClimbs.filter((c) => c === 'zone3').length;
-  if (zone3 >= 6) return 40;
-  if (zone3 === 5) return 25;
-  if (zone3 === 4) return 10;
+  if (zone3 >= 4) return 40;
+  if (zone3 === 3) return 25;
+  if (zone3 === 2) return 10;
   return 0;
+}
+
+/**
+ * How many partners an alliance of this many robots can lift between them:
+ * everyone but the robot doing the lifting. Two robots lift one; three lifted
+ * two, back when an alliance was three.
+ */
+export function maxPartnerClimbs(robotsInAlliance: number): number {
+  return Math.max(0, robotsInAlliance - 1);
 }
 
 export function alliancePreScore(

@@ -24,7 +24,7 @@ function notEnoughTeams(rankedCount: number) {
   return NextResponse.json(
     {
       error:
-        `Three alliances of three teams need at least ${MIN_TEAMS} teams, ` +
+        `Three alliances of two teams need at least ${MIN_TEAMS} teams, ` +
         `only ${rankedCount} are available`,
     },
     { status: 400 },

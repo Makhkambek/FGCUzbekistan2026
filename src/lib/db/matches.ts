@@ -9,8 +9,9 @@ export interface MatchRow extends RowDataPacket {
   red_alliance_id: number | null; blue_alliance_id: number | null;
   red1_id: number; red2_id: number;
   /**
-   * Empty in the playoff: an alliance is two robots there, three in
-   * qualification. Every screen drops the empty slot rather than drawing a
+   * Always empty from 5 September 2026: an alliance is two robots in every
+   * phase. Rows generated before that date still carry a third team, so every
+   * screen reads the slot and drops it when it is empty rather than drawing a
    * dash where no team stands.
    */
   red3_id: number | null;
@@ -60,18 +61,19 @@ async function clearDisplayPointerForPhase(
 }
 
 /**
- * Makes sure a playoff match may leave its third slot empty.
+ * Makes sure a match may leave its third slot empty.
  *
  * This is the migration 2026-09-04-two-robot-alliances.sql, applied by the
  * site itself. Schema changes here are normally run by hand, and that is
  * still the better way — but the server's database is reachable only from the
- * server, the production image carries no scripts, and a bracket that cannot
- * be built because a column is NOT NULL would take the event down with it.
+ * server, the production image carries no scripts, and a schedule or bracket
+ * that cannot be built because a column is NOT NULL would take the event down
+ * with it. Both paths call it now that qualification is two robots a side too.
  *
  * It reads the column first and does nothing when it is already nullable, so
- * it costs one cheap query per bracket build and is safe to call again.
+ * it costs one cheap query per generation and is safe to call again.
  */
-export async function ensurePlayoffSlotsNullable(): Promise<boolean> {
+export async function ensureThirdRobotSlotsNullable(): Promise<boolean> {
   const pool = getPool();
   const [rows] = await pool.execute<(RowDataPacket & { IS_NULLABLE: string })[]>(
     `SELECT IS_NULLABLE FROM information_schema.COLUMNS
@@ -79,13 +81,17 @@ export async function ensurePlayoffSlotsNullable(): Promise<boolean> {
   if (rows[0]?.IS_NULLABLE === 'YES') return false;
 
   await pool.query('ALTER TABLE matches MODIFY red3_id INT NULL, MODIFY blue3_id INT NULL');
-  console.warn('matches.red3_id/blue3_id made nullable — two-robot playoff alliances');
+  console.warn('matches.red3_id/blue3_id made nullable — two-robot alliances');
   return true;
 }
 
 export async function insertMatches(rows: {
   matchNumber: number; phase: 'qualification' | 'playoff';
-  red: [number, number, number | null]; blue: [number, number, number | null];
+  /**
+   * Two team ids, and optionally a third for a row generated under the old
+   * three-a-side qualification rules. A missing third is stored as NULL.
+   */
+  red: (number | null)[]; blue: (number | null)[];
   redAllianceId?: number | null; blueAllianceId?: number | null;
 }[], options?: { clearPhase?: 'qualification' | 'playoff' }): Promise<void> {
   const pool = getPool();
@@ -102,18 +108,21 @@ export async function insertMatches(rows: {
       await conn.execute('DELETE FROM matches WHERE phase = ?', [options.clearPhase]);
     }
     for (const r of rows) {
-      if (r.red.length !== 3 || r.blue.length !== 3) {
+      const sides = [r.red, r.blue];
+      if (sides.some((s) => s.length < 2 || s.length > 3 || s[0] === null || s[1] === null)) {
         throw new Error(
-          `Match ${r.matchNumber}: each alliance must have exactly three teams`,
+          `Match ${r.matchNumber}: each alliance needs two teams, and may name a third`,
         );
       }
+      const red = [r.red[0], r.red[1], r.red[2] ?? null];
+      const blue = [r.blue[0], r.blue[1], r.blue[2] ?? null];
       await conn.execute(
         `INSERT INTO matches
            (match_number, phase, red_alliance_id, blue_alliance_id,
             red1_id, red2_id, red3_id, blue1_id, blue2_id, blue3_id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [r.matchNumber, r.phase, r.redAllianceId ?? null, r.blueAllianceId ?? null,
-         r.red[0], r.red[1], r.red[2], r.blue[0], r.blue[1], r.blue[2]]);
+         ...red, ...blue]);
     }
     await conn.commit();
   } catch (e) {
@@ -149,8 +158,8 @@ export async function getMatchById(id: number): Promise<MatchRow | null> {
 }
 
 /**
- * True if a team id appears in any match — as any of the six per-alliance
- * slots, in either phase. There is no foreign key from matches to teams, so
+ * True if a team id appears in any match — in any of the per-alliance slots,
+ * in either phase. There is no foreign key from matches to teams, so
  * callers must check this themselves before deleting a team; otherwise the
  * match rows are orphaned and the scoreboard renders a bare numeric id.
  */

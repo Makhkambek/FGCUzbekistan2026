@@ -42,7 +42,7 @@ export async function GET() {
   const state = await getDisplayState();
 
   // A skills attempt owns the screen the same way a match does — one team on
-  // the field instead of six.
+  // the field instead of four.
   if (state.skillsAttemptId !== null && state.phase !== 'standings') {
     const attempt = await getAttempt(state.skillsAttemptId);
     if (attempt) {

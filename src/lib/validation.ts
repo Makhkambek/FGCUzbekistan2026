@@ -11,8 +11,10 @@ export const matchResultSchema = z.object({
   extinguisher: wildfire,
   climbRed: z.tuple([climb, climb, climb]),
   climbBlue: z.tuple([climb, climb, climb]),
-  partnerClimbRed: z.number().int().min(0).max(2),
-  partnerClimbBlue: z.number().int().min(0).max(2),
+  // An alliance is two robots in both phases, and two robots can lift one
+  // partner between them — never two.
+  partnerClimbRed: z.number().int().min(0).max(1),
+  partnerClimbBlue: z.number().int().min(0).max(1),
   minorFoulsRed: fouls, majorFoulsRed: fouls,
   minorFoulsBlue: fouls, majorFoulsBlue: fouls,
   cardRed: z.tuple([card, card, card]),

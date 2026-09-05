@@ -1,17 +1,26 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { scheduleShape, evenMatchesPerTeam } from '@/lib/schedule/generate';
+import {
+  scheduleShape, evenMatchesPerTeam, parseMatchesPerTeam, TEAMS_PER_MATCH,
+} from '@/lib/schedule/generate';
 
 export default function SchedulePanel({ matchCount, teamCount }: { matchCount: number; teamCount: number }) {
   const hasSchedule = matchCount > 0;
   const router = useRouter();
-  const [matchesPerTeam, setMatchesPerTeam] = useState(5);
-  // Six teams play a match, so unless teams × matchesPerTeam divides by 6 the
+  // Held as typed, not as a number: an empty box has to stay empty while the
+  // operator retypes it. Storing a number here meant clearing the field put a
+  // 1 straight back, so asking for 9 produced 19.
+  const [matchesPerTeamText, setMatchesPerTeamText] = useState('5');
+  const matchesPerTeam = parseMatchesPerTeam(matchesPerTeamText);
+  // Four teams play a match, so unless teams × matchesPerTeam divides by 4 the
   // schedule cannot be equal for everyone. Say so before the button is
   // pressed rather than leaving it to be noticed in the standings.
-  const shape = teamCount >= 6 ? scheduleShape(teamCount, matchesPerTeam) : null;
-  const evenAlternative = teamCount >= 6 ? evenMatchesPerTeam(teamCount, matchesPerTeam) : null;
+  const enoughTeams = teamCount >= TEAMS_PER_MATCH;
+  const shape = enoughTeams && matchesPerTeam !== null
+    ? scheduleShape(teamCount, matchesPerTeam) : null;
+  const evenAlternative = enoughTeams && matchesPerTeam !== null
+    ? evenMatchesPerTeam(teamCount, matchesPerTeam) : null;
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -62,6 +71,11 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
   }
 
   async function generate() {
+    // The box can be empty mid-edit; there is nothing to generate from then.
+    if (matchesPerTeam === null) {
+      setMessage('Enter how many matches each team plays');
+      return;
+    }
     // Reset asks twice; Generate asked nothing, yet it deletes and replaces
     // the whole qualification schedule. Printed sheets are already in the
     // teams' hands by then — the pairings would simply change under them.
@@ -105,16 +119,15 @@ export default function SchedulePanel({ matchCount, teamCount }: { matchCount: n
       <h2 className="text-lg font-semibold text-gray-900">Qualification schedule ({matchCount} matches)</h2>
       <div className="flex items-center gap-2">
         <label className="text-sm text-gray-500">Matches per team</label>
-        <input type="number" min={1} max={20} value={matchesPerTeam}
-          // Clearing the field used to leave 0 behind, which the API rejects
-          // as "Invalid parameters" — clamp into the range the server accepts.
-          onChange={(e) => {
-            const n = Math.trunc(Number(e.target.value));
-            setMatchesPerTeam(Number.isFinite(n) && n > 0 ? Math.min(20, n) : 1);
-          }}
+        <input type="number" min={1} max={20} value={matchesPerTeamText}
+          // Whatever is typed stays on screen while the field has focus,
+          // including nothing at all. It is put back into range when the
+          // operator leaves the field, so the API never sees a 0 or a 99.
+          onChange={(e) => setMatchesPerTeamText(e.target.value)}
+          onBlur={() => setMatchesPerTeamText(String(matchesPerTeam ?? 1))}
           onWheel={(e) => e.currentTarget.blur()}
           className="w-20 px-3 py-2 rounded-md bg-white text-gray-900 border border-gray-300 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
-        <button onClick={generate} disabled={busy || resetting}
+        <button onClick={generate} disabled={busy || resetting || matchesPerTeam === null}
           className="px-4 py-2 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50">
           {busy ? 'Generating…' : 'Generate'}
         </button>

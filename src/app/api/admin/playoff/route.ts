@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireSessionApi } from '@/lib/auth/require-session';
 import { getAlliances } from '@/lib/db/alliances';
 import {
-  insertMatches, listMatches, deleteMatchesByPhase, ensurePlayoffSlotsNullable,
+  insertMatches, listMatches, deleteMatchesByPhase, ensureThirdRobotSlotsNullable,
 } from '@/lib/db/matches';
 import { PLAYOFF_PAIRINGS } from '@/lib/alliances/playoff';
 import { qualificationBlockReason } from '@/lib/alliances/readiness';
@@ -57,7 +57,7 @@ export async function POST() {
   try {
     // A playoff alliance is two robots, so the match's third slot is empty —
     // which the column has to allow before the insert below.
-    await ensurePlayoffSlotsNullable();
+    await ensureThirdRobotSlotsNullable();
     // clearPhase runs the delete inside the same transaction as the insert
     // (see insertMatches), so a failure here rolls back to the previous
     // playoff matches instead of leaving the phase empty.

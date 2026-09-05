@@ -45,7 +45,7 @@ export async function GET() {
 
   // Playoff matches carry the alliance id of each side — the display's "next
   // match" ticker uses this to say "Alliance 2 vs Alliance 3" instead of
-  // listing six team names for a playoff match.
+  // listing the team names for a playoff match.
   const alliances = await getAlliances();
   const allianceSeedById = new Map(alliances.map((a) => [a.id, a.seed]));
 

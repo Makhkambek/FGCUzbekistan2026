@@ -47,7 +47,10 @@ describe('a playoff alliance of two robots', () => {
     expect(p.red.ranks).toEqual([2, 2]);
   });
 
-  it('still shows three names in a qualification match', () => {
+  // Qualification became two robots a side on 5 September 2026 as well, but a
+  // row generated before that still names three teams and must still be shown
+  // as it was played.
+  it('still shows three names in a match generated under the old rules', () => {
     const row = playoffRow({ phase: 'qualification', red3_id: 3, blue3_id: 4, red_alliance_id: null, blue_alliance_id: null });
     const p = buildDisplayPayload(state, row, names) as { red: { teams: string[] } };
     expect(p.red.teams).toEqual(['Tashkent', 'Samarkand', 'Bukhara']);

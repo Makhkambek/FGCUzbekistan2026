@@ -29,8 +29,8 @@ CREATE TABLE matches (
   phase ENUM('qualification','playoff') NOT NULL DEFAULT 'qualification',
   red_alliance_id INT NULL,
   blue_alliance_id INT NULL,
-  -- The third slot is empty in the playoff: an alliance is two robots there,
-  -- three in qualification.
+  -- The third slot is empty: an alliance is two robots in both phases since
+  -- 5 September 2026. Rows generated before that still fill it.
   red1_id INT NOT NULL, red2_id INT NOT NULL, red3_id INT NULL,
   blue1_id INT NOT NULL, blue2_id INT NOT NULL, blue3_id INT NULL,
   played BOOLEAN NOT NULL DEFAULT FALSE,

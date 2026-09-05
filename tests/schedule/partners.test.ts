@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateSchedule, type ScheduledMatch } from '@/lib/schedule/generate';
+import { generateSchedule, attemptsFor, type ScheduledMatch } from '@/lib/schedule/generate';
 
 /**
  * FGC Uzbekistan, 8 команд: организатор просит, чтобы команда не попадала
@@ -82,5 +82,24 @@ describe('8 команд × 8 матчей — повторов ровно ст�
     for (const seed of [1, 7, 2026, 31337]) {
       expect(repeats(generateSchedule(ids(8), 8, seed)), `seed ${seed}`).toBe(4);
     }
+  });
+});
+
+describe('перебор вариантов не растёт вместе с ростером', () => {
+  it('на реальном размере турнира перебирает все 400', () => {
+    expect(attemptsFor(8, 16)).toBe(400);
+  });
+
+  it('крупному ростеру достаётся меньше попыток, но не меньше двадцати', () => {
+    expect(attemptsFor(40, 200)).toBe(20);
+    expect(attemptsFor(128, 640)).toBe(20);
+    expect(attemptsFor(20, 100)).toBeLessThan(400);
+    expect(attemptsFor(20, 100)).toBeGreaterThanOrEqual(20);
+  });
+
+  it('128 команд × 20 матчей считается меньше секунды', () => {
+    const t0 = performance.now();
+    generateSchedule(ids(128), 20, 42);
+    expect(performance.now() - t0).toBeLessThan(1000);
   });
 });

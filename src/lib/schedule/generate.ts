@@ -145,6 +145,20 @@ function buildAttempt(
 
 /** Сколько расписаний перебрать, прежде чем взять лучшее. */
 const ATTEMPTS = 400;
+/**
+ * Бюджет на перебор: работа одной попытки ~ матчи × команды, и на реальном
+ * турнире (8 × 8 = 16 матчей) все 400 попыток укладываются в 15 мс. Но
+ * генератор работает синхронно внутри запроса на том же процессе, что отдаёт
+ * часы проектору, — ростер в сотню команд держал бы его секунды. Бюджет
+ * оставляет 400 попыток всему, что не крупнее восьми команд по восемь матчей,
+ * и плавно урезает их дальше, не опускаясь ниже двадцати.
+ */
+const ATTEMPT_BUDGET = ATTEMPTS * 16 * 8;
+const MIN_ATTEMPTS = 20;
+
+export function attemptsFor(teams: number, totalMatches: number): number {
+  return Math.max(MIN_ATTEMPTS, Math.min(ATTEMPTS, Math.floor(ATTEMPT_BUDGET / (teams * totalMatches))));
+}
 
 export function generateSchedule(
   teamIds: number[], matchesPerTeam: number, seed: number,
@@ -167,8 +181,9 @@ export function generateSchedule(
   // расписания упирается в уже занятые пары. Перебираем сотни проходов от
   // одного и того же seed (расписание остаётся воспроизводимым) и берём то,
   // где повторных альянсов меньше всего.
+  const attempts = attemptsFor(teamIds.length, totalMatches);
   let best = buildAttempt(teamIds, totalMatches, rng);
-  for (let i = 1; i < ATTEMPTS; i++) {
+  for (let i = 1; i < attempts; i++) {
     const attempt = buildAttempt(teamIds, totalMatches, rng);
     if (attempt.cost < best.cost) best = attempt;
   }

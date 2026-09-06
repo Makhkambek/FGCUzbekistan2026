@@ -225,7 +225,10 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
                 // whatever already sits there still shows up as selected
                 // instead of vanishing from its own dropdown.
                 const hypothetical = currentValue !== null ? clearPick(state, a.seed, slot) : state;
-                const available = ranked.filter((id) => isPickable(hypothetical, a.seed, id));
+                // The ranking goes in too: a lower captain is offered only
+                // while a free team remains to take over that alliance.
+                const available = ranked.filter((id) => isPickable(hypothetical, a.seed, id, ranked));
+                const captainOf = (id: number) => state.find((x) => x.captain === id)?.seed;
 
                 return (
                   <label key={slot} className="block text-sm text-gray-700 space-y-1">
@@ -245,7 +248,10 @@ export default function AlliancePicker({ teamNames }: { teamNames: Record<number
                     >
                       <option value="">— choose a team —</option>
                       {available.map((id) => (
-                        <option key={id} value={id}>{teamNames[id] ?? id}</option>
+                        <option key={id} value={id}>
+                          {teamNames[id] ?? id}
+                          {captainOf(id) !== undefined && ` — captain of alliance ${captainOf(id)}`}
+                        </option>
                       ))}
                     </select>
                   </label>
